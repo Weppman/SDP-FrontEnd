@@ -33,6 +33,12 @@ export default function Toolbar() {
           >
             Contact Us
           </Link>
+          <Link
+            to="/logbook"
+            className="border-2 border-green-300 bg-green-100 px-4 py-2 rounded-xl font-semibold text-green-900 hover:bg-green-300 transition"
+          >
+            Logbook
+          </Link>
         </section>
 
         {/* Right Auth Panel */}

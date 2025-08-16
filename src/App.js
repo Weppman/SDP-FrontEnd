@@ -2,7 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./home.js";
 import Products from "./products.js";
-
+import Logbook from "./logbook.js"; 
 import Toolbar from "./toolbar.js";
 
 
@@ -18,6 +18,7 @@ function App() {
           <Route path="/achievements" element={<Products />} />
           <Route path="/achievements" element={<Products />} />
           <Route path="/achievements" element={<Products />} />
+          <Route path="/logbook" element={<Logbook />} />
           
         </Routes>
       </section>
