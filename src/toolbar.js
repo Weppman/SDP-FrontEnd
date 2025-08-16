@@ -1,60 +1,46 @@
+import React from "react";
 import { Link } from "react-router-dom";
-import { HiHome } from "react-icons/hi";
-import { FaFacebook, FaInstagram } from "react-icons/fa";
+import AuthPanel from "./authHandling/authPanel"; // adjust path if needed
 
-function Toolbar() {
+export default function Toolbar() {
   return (
-    <div className="w-full bg-gray-800 px-2 py-4 text-white">
-      <div className="mx-auto flex items-center justify-between">
-        <div className="flex space-x-3">
+    <section className="bg-gray-50 fixed top-0 left-0 right-0 z-50 shadow-md border-b border-green-300">
+      <section className="mx-auto max-w-6xl flex items-center justify-between px-4 py-3">
+
+        {/* Left links */}
+        <section className="flex space-x-3">
           <Link
             to="/"
-            className="flex transform cursor-pointer items-center justify-center rounded bg-blue-600 px-3 py-2 transition-transform duration-700 ease-in-out hover:rounded-2xl hover:bg-blue-700 focus:outline-none"
+            className="flex items-center justify-center border-2 border-green-300 bg-white px-3 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
           >
-            <HiHome className="text-2xl" />
+            Home
           </Link>
           <Link
             to="/about"
-            className="transform cursor-pointer rounded bg-blue-600 px-4 py-2 transition-transform duration-700 ease-in-out hover:rounded-2xl hover:bg-blue-700 focus:outline-none"
+            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
           >
             About Us
           </Link>
           <Link
             to="/products"
-            className="transform cursor-pointer rounded bg-blue-600 px-4 py-2 transition-transform duration-700 ease-in-out hover:rounded-2xl hover:bg-blue-700 focus:outline-none"
+            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
           >
             Products
           </Link>
           <Link
             to="/contact"
-            className="transform cursor-pointer rounded bg-blue-600 px-4 py-2 transition-transform duration-700 ease-in-out hover:rounded-2xl hover:bg-blue-700 focus:outline-none"
+            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
           >
             Contact Us
           </Link>
-        </div>
+        </section>
 
-        <div className="flex space-x-2">
-          <a
-            href="https://facebook.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex transform cursor-pointer items-center justify-center rounded bg-blue-600 px-3 py-2 transition-transform duration-700 ease-in-out hover:rounded-2xl hover:bg-blue-700 focus:outline-none"
-          >
-            <FaFacebook className="text-2xl" />
-          </a>
+        {/* Right Auth Panel */}
+        <section className="flex items-center">
+          <AuthPanel />
+        </section>
 
-          <a
-            href="https://instagram.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex transform cursor-pointer items-center justify-center rounded bg-blue-600 px-3 py-2 transition-transform duration-700 ease-in-out hover:rounded-2xl hover:bg-blue-700 focus:outline-none"
-          >
-            <FaInstagram className="text-2xl" />
-          </a>
-        </div>
-      </div>
-    </div>
+      </section>
+    </section>
   );
 }
-
-export default Toolbar;
