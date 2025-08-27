@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useUserContext } from "./context/userContext.js";
 
 export default function History() {
+  const { userID } = useUserContext();
   const [expandedHike, setExpandedHike] = useState(null);
+  const [completedHikes, setCompletedHikes] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    userid: "",
     trailid: "",
     date: ""
   });
-  const [completedHikes, setCompletedHikes] = useState([]);
-  const [loading, setLoading] = useState(false);
 
   const API_URL = "https://sdp-backend-production.up.railway.app/query";
 
-  const fetchCompletedHikes = async () => {
+  const fetchCompletedHikes = async (id) => {
+    if (!id) return;
     setLoading(true);
     try {
-      const query = { sql: "SELECT * FROM completed_hike_table ORDER BY completedhikeid ASC" };
+      const query = { sql: `SELECT * FROM completed_hike_table WHERE userid = ${id} ORDER BY completedhikeid ASC` };
       const res = await axios.post(API_URL, query, {
         headers: { "Content-Type": "application/json" },
       });
@@ -28,14 +30,21 @@ export default function History() {
   };
 
   useEffect(() => {
-    fetchCompletedHikes();
-  }, []);
+    fetchCompletedHikes(userID);
+  }, [userID]);
 
   const filteredHikes = completedHikes.filter(hike =>
-    (hike.userid?.toString() || "").includes(filters.userid) &&
     (hike.trailid?.toString() || "").includes(filters.trailid) &&
     (hike.date ? new Date(hike.date).toLocaleDateString() : "").includes(filters.date)
   );
+
+  if (!userID) {
+    return (
+      <main className="bg-gray-50 min-h-screen pt-20 p-6 flex flex-col items-center">
+        <p className="text-gray-500">Loading user information...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="bg-gray-50 min-h-screen pt-20 p-6 flex flex-col items-center">
@@ -63,9 +72,6 @@ export default function History() {
                 </section>
               ))}
             </section>
-          </section>
-          <section className="h-48 bg-gray-100 border border-gray-300 rounded-lg flex items-center justify-center">
-            <p className="text-gray-400">Image goes here</p>
           </section>
         </aside>
 
