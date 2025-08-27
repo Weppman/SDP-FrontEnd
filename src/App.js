@@ -1,7 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./home/home.js";
-import Products from "./products.js";
 import Logbook from "./logbook.js"; 
 import Profile from "./profile/profile.js";
 import Toolbar from "./toolbar/toolbar.js";
