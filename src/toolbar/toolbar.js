@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import AuthPanel from "./authHandling/authPanel"; // adjust path if needed
+import AuthPanel from "../authHandling/authPanel"; // adjust path if needed
 
 export default function Toolbar() {
   return (
@@ -14,24 +14,6 @@ export default function Toolbar() {
             className="flex items-center justify-center border-2 border-green-300 bg-white px-3 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
           >
             Home
-          </Link>
-          <Link
-            to="/about"
-            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
-          >
-            About Us
-          </Link>
-          <Link
-            to="/products"
-            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
-          >
-            Products
-          </Link>
-          <Link
-            to="/contact"
-            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
-          >
-            Contact Us
           </Link>
           <Link
             to="/logbook"
