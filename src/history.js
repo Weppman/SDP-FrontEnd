@@ -8,7 +8,7 @@ export default function History() {
   const [completedHikes, setCompletedHikes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    trailid: "",
+    name: "",
     date: ""
   });
 
@@ -18,7 +18,16 @@ export default function History() {
     if (!id) return;
     setLoading(true);
     try {
-      const query = { sql: `SELECT * FROM completed_hike_table WHERE userid = ${id} ORDER BY completedhikeid ASC` };
+      const query = {
+        sql: `
+          SELECT ch.completedhikeid, ch.userid, ch.trailid, ch.date, 
+                 t.name, t.location, t.difficulty, t.duration, t.description
+          FROM completed_hike_table ch
+          JOIN trail_table t ON ch.trailid = t.trailid
+          WHERE ch.userid = ${id}
+          ORDER BY ch.completedhikeid ASC
+        `
+      };
       const res = await axios.post(API_URL, query, {
         headers: { "Content-Type": "application/json" },
       });
@@ -34,7 +43,7 @@ export default function History() {
   }, [userID]);
 
   const filteredHikes = completedHikes.filter(hike =>
-    (hike.trailid?.toString() || "").includes(filters.trailid) &&
+    (hike.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
     (hike.date ? new Date(hike.date).toLocaleDateString() : "").includes(filters.date)
   );
 
@@ -94,7 +103,7 @@ export default function History() {
                           : "hover:bg-gray-50 text-gray-800"
                       }`}
                     >
-                      <p className="font-medium">Completed Hike #{hike.completedhikeid}</p>
+                      <p className="font-medium">{hike.name || `Trail #${hike.trailid}`}</p>
                       <p aria-hidden="true" className="ml-2 text-gray-500">
                         {expandedHike === hike.completedhikeid ? "▲" : "▼"}
                       </p>
@@ -103,8 +112,11 @@ export default function History() {
                     {expandedHike === hike.completedhikeid && (
                       <section className="p-3 bg-green-50 text-gray-700 text-sm flex justify-between max-h-[300px] overflow-y-auto">
                         <section className="space-y-2">
-                          <p><strong>User ID:</strong> {hike.userid}</p>
-                          <p><strong>Trail ID:</strong> {hike.trailid}</p>
+                          <p><strong>Trail Name:</strong> {hike.name}</p>
+                          <p><strong>Location:</strong> {hike.location}</p>
+                          <p><strong>Difficulty:</strong> {hike.difficulty}</p>
+                          <p><strong>Duration:</strong> {hike.duration ? new Date(hike.duration).toLocaleDateString() : "Unknown"}</p>
+                          <p><strong>Description:</strong> {hike.description}</p>
                           <p><strong>Date Completed:</strong> {hike.date ? new Date(hike.date).toLocaleDateString() : "Unknown"}</p>
                         </section>
                       </section>
