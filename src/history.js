@@ -7,10 +7,10 @@ export default function History() {
   const [expandedHike, setExpandedHike] = useState(null);
   const [completedHikes, setCompletedHikes] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({
-    name: "",
-    date: ""
-  });
+  const [filters, setFilters] = useState({ name: "", date: "" });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTimespan, setEditTimespan] = useState("");
+  const [selectedHikeId, setSelectedHikeId] = useState(null);
 
   const API_URL = "https://sdp-backend-production.up.railway.app/query";
 
@@ -20,7 +20,7 @@ export default function History() {
     try {
       const query = {
         sql: `
-          SELECT ch.completedhikeid, ch.userid, ch.trailid, ch.date, 
+          SELECT ch.completedhikeid, ch.userid, ch.trailid, ch.date, ch.timespan,
                  t.name, t.location, t.difficulty, t.duration, t.description
           FROM completed_hike_table ch
           JOIN trail_table t ON ch.trailid = t.trailid
@@ -46,6 +46,62 @@ export default function History() {
     (hike.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
     (hike.date ? new Date(hike.date).toLocaleDateString() : "").includes(filters.date)
   );
+
+const formatTimespan = (timespan) => {
+  if (!timespan) return "Unknown";
+
+  // If it's an object (PostgreSQL interval), convert to string
+  if (typeof timespan === "object" && timespan !== null) {
+    // Typical PG interval object has 'hours', 'minutes', 'seconds' keys
+    const h = String(timespan.hours || 0).padStart(2, "0");
+    const m = String(timespan.minutes || 0).padStart(2, "0");
+    const s = String(Math.floor(timespan.seconds || 0)).padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  }
+
+  // If it's a string, try to match HH:MM:SS
+  const tsString = timespan.toString();
+  const match = tsString.match(/(\d+):(\d+):(\d+)/);
+  if (match) {
+    return `${match[1].padStart(2, "0")}:${match[2].padStart(2, "0")}:${match[3].padStart(2, "0")}`;
+  }
+
+  return tsString;
+};
+
+
+  const openEditModal = (hike) => {
+    setSelectedHikeId(hike.completedhikeid);
+    setEditTimespan(formatTimespan(hike.timespan) || "");
+    setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedHikeId(null);
+    setEditTimespan("");
+  };
+
+const handleUpdateTimespan = async () => {
+  if (!selectedHikeId || !editTimespan) return;
+
+  try {
+    await axios.post(API_URL, {
+      sql: `
+        UPDATE completed_hike_table
+        SET timespan = '${editTimespan}'::interval
+        WHERE completedhikeid = ${selectedHikeId}
+      `
+    }, { headers: { "Content-Type": "application/json" } });
+
+    alert("Timespan updated successfully.");
+    closeEditModal();
+    fetchCompletedHikes(userID);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to update timespan.");
+  }
+};
 
   if (!userID) {
     return (
@@ -110,15 +166,22 @@ export default function History() {
                     </button>
 
                     {expandedHike === hike.completedhikeid && (
-                      <section className="p-3 bg-green-50 text-gray-700 text-sm flex justify-between max-h-[300px] overflow-y-auto">
+                      <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col max-h-[300px] overflow-y-auto">
                         <section className="space-y-2">
                           <p><strong>Trail Name:</strong> {hike.name}</p>
                           <p><strong>Location:</strong> {hike.location}</p>
                           <p><strong>Difficulty:</strong> {hike.difficulty}</p>
-                          <p><strong>Duration:</strong> {hike.duration ? new Date(hike.duration).toLocaleDateString() : "Unknown"}</p>
+                          <p><strong>Duration:</strong> {hike.duration ? hike.duration : "Unknown"}</p>
                           <p><strong>Description:</strong> {hike.description}</p>
                           <p><strong>Date Completed:</strong> {hike.date ? new Date(hike.date).toLocaleDateString() : "Unknown"}</p>
+                          <p><strong>Time Span:</strong> {formatTimespan(hike.timespan)}</p>
                         </section>
+                        <button
+                          onClick={() => openEditModal(hike)}
+                          className="mt-2 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        >
+                          Edit
+                        </button>
                       </section>
                     )}
                   </article>
@@ -130,6 +193,35 @@ export default function History() {
           )}
         </section>
       </section>
+
+      {showEditModal && (
+        <section className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <section className="bg-white rounded-lg shadow-lg p-6 w-96 flex flex-col gap-4">
+            <h2 className="text-lg font-semibold text-gray-800">Edit Timespan</h2>
+            <input
+              type="text"
+              value={editTimespan}
+              onChange={e => setEditTimespan(e.target.value)}
+              placeholder="HH:MM:SS"
+              className="rounded-md border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <section className="flex justify-end gap-2 mt-2">
+              <button
+                onClick={handleUpdateTimespan}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+              >
+                Save
+              </button>
+              <button
+                onClick={closeEditModal}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+            </section>
+          </section>
+        </section>
+      )}
     </main>
   );
 }
