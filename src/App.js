@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./home/home.js";
 import Logbook from "./logbook.js"; 
+import History from "./history.js";
 import Profile from "./profile/profile.js";
 import Toolbar from "./toolbar/toolbar.js";
 
@@ -17,6 +18,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home/>} />
           <Route path="/logbook" element={<Logbook />} />
+          <Route path="/history" element={<History />} />
           <Route path="/profile" element={<Profile />} />
           
         </Routes>
