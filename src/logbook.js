@@ -2,250 +2,267 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useUserContext } from "./context/userContext.js";
 
-export default function LogbookPage() {
+export default function Logbook() {
   const { userID } = useUserContext();
   const [expandedHike, setExpandedHike] = useState(null);
-  const [filters, setFilters] = useState({ name: "", location: "", difficulty: "", duration: "", description: "" });
-  const [hikes, setHikes] = useState([]);
+  const [completedHikes, setCompletedHikes] = useState([]);
+  const [upcomingHikes, setUpcomingHikes] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showPlanModal, setShowPlanModal] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [selectedHike, setSelectedHike] = useState(null);
-  const [plannedDate, setPlannedDate] = useState("");
-  const [friends, setFriends] = useState([]);
+  const [filters, setFilters] = useState({ name: "", date: "" });
+  const [upcomingFilters, setUpcomingFilters] = useState({ name: "", date: "" });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTimespan, setEditTimespan] = useState("");
+  const [selectedHikeId, setSelectedHikeId] = useState(null);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [startPlannedAt, setStartPlannedAt] = useState("");
+  const [selectedUpcomingHikeId, setSelectedUpcomingHikeId] = useState(null);
+
   const API_URL = "https://sdp-backend-production.up.railway.app/query";
 
-  useEffect(() => { fetchHikes(); }, []);
-
-  const fetchHikes = async () => {
+  const fetchCompletedHikes = async (id) => {
+    if (!id) return;
     setLoading(true);
     try {
-      const res = await axios.post(API_URL, { sql: "SELECT * FROM trail_table ORDER BY trailid ASC" }, { headers: { "Content-Type": "application/json" } });
-      setHikes(res.data.rows);
+      const query = {
+        sql: `
+          SELECT ch.completedhikeid, ch.userid, ch.trailid, ch.date, ch.timespan,
+                 t.name, t.location, t.difficulty, t.duration, t.description
+          FROM completed_hike_table ch
+          JOIN trail_table t ON ch.trailid = t.trailid
+          WHERE ch.userid = ${id}
+          ORDER BY ch.completedhikeid ASC
+        `
+      };
+      const res = await axios.post(API_URL, query, { headers: { "Content-Type": "application/json" } });
+      setCompletedHikes(res.data.rows);
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
   };
 
-  const filteredHikes = hikes.filter(hike =>
+  const fetchUpcomingHikes = async (id) => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const query = {
+        sql: `
+          SELECT p.plannerid, p.trailid, p.planned_at,
+                 t.name, t.location, t.difficulty, t.duration, t.description
+          FROM planner_table p
+          JOIN hike h ON h.plannerid = p.plannerid
+          JOIN trail_table t ON t.trailid = p.trailid
+          WHERE h.userid = ${id} AND h.iscoming = true
+          ORDER BY p.planned_at ASC
+        `
+      };
+      const res = await axios.post(API_URL, query, { headers: { "Content-Type": "application/json" } });
+      setUpcomingHikes(res.data.rows);
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchCompletedHikes(userID);
+    fetchUpcomingHikes(userID);
+  }, [userID]);
+
+  const filteredCompletedHikes = completedHikes.filter(hike =>
     (hike.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
-    (hike.location || "").toLowerCase().includes(filters.location.toLowerCase()) &&
-    (hike.difficulty?.toString() || "").toLowerCase().includes(filters.difficulty.toLowerCase()) &&
-    (hike.duration ? new Date(hike.duration).toLocaleDateString() : "").toLowerCase().includes(filters.duration.toLowerCase()) &&
-    (hike.description || "").toLowerCase().includes(filters.description.toLowerCase())
+    (hike.date ? new Date(hike.date).toLocaleDateString() : "").includes(filters.date)
   );
 
-  const openPlanModal = (hike) => { setSelectedHike(hike); setShowPlanModal(true); };
-  const closeModals = () => { 
-    setShowPlanModal(false); 
-    setShowInviteModal(false); 
-    setSelectedHike(null); 
-    setPlannedDate(""); 
-    setFriends(friends.map(f => ({ ...f, invited: false }))); 
-  };
+  const filteredUpcomingHikes = upcomingHikes.filter(hike =>
+    (hike.name || "").toLowerCase().includes(upcomingFilters.name.toLowerCase()) &&
+    (hike.planned_at ? new Date(hike.planned_at).toLocaleDateString() : "").includes(upcomingFilters.date)
+  );
 
-  const isDateValid = (datetime) => {
-    if (!datetime) return false;
-    const [datePart, timePartRaw] = datetime.split("T");
-    if (!datePart || !timePartRaw) return false;
-    const [hours, minutes] = timePartRaw.split(":").map(Number);
-    const selected = new Date(datePart);
-    selected.setHours(hours, minutes, 0, 0);
-    return selected > new Date();
-  };
-
-  const formatTime = (datetime) => {
-    if (!datetime) return { datePart: "", timePart: "" };
-    const [datePart, timePartRaw] = datetime.split("T");
-    if (!datePart || !timePartRaw) return { datePart: "", timePart: "" };
-    const timePart = timePartRaw.length === 5 ? `${timePartRaw}:00` : timePartRaw;
-    return { datePart, timePart };
-  };
-
-  const handlePlanHike = async () => {
-    if (!selectedHike || !isDateValid(plannedDate)) {
-      alert("Please select a valid future date for your hike.");
-      return;
+  const formatTimespan = (timespan) => {
+    if (!timespan) return "Unknown";
+    if (typeof timespan === "object" && timespan !== null) {
+      const h = String(timespan.hours || 0).padStart(2, "0");
+      const m = String(timespan.minutes || 0).padStart(2, "0");
+      const s = String(Math.floor(timespan.seconds || 0)).padStart(2, "0");
+      return `${h}:${m}:${s}`;
     }
+    const tsString = timespan.toString();
+    const match = tsString.match(/(\d+):(\d+):(\d+)/);
+    if (match) return `${match[1].padStart(2, "0")}:${match[2].padStart(2, "0")}:${match[3].padStart(2, "0")}`;
+    return tsString;
+  };
 
-    const timestamp = plannedDate.includes(":") && plannedDate.length === 16
-      ? plannedDate.replace("T", " ") + ":00"
-      : plannedDate.replace("T", " ");
+  const openEditModal = (hike) => {
+    setSelectedHikeId(hike.completedhikeid);
+    setEditTimespan(formatTimespan(hike.timespan) || "");
+    setShowEditModal(true);
+  };
 
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedHikeId(null);
+    setEditTimespan("");
+  };
+
+  const handleUpdateTimespan = async () => {
+    if (!selectedHikeId || !editTimespan) return;
     try {
-      const plannerRes = await axios.post(API_URL, {
-        sql: `
-          INSERT INTO planner_table (trailid, planned_at)
-          VALUES (${selectedHike.trailid}, '${timestamp}'::timestamp without time zone)
-          RETURNING plannerid
-        `
-      }, { headers: { "Content-Type": "application/json" } });
-
-      const newPlannerId = plannerRes.data.rows[0].plannerid;
-
       await axios.post(API_URL, {
         sql: `
-          INSERT INTO hike (plannerid, userid, iscoming)
-          VALUES (${newPlannerId}, ${userID}, true)
+          UPDATE completed_hike_table
+          SET timespan = '${editTimespan}'::interval
+          WHERE completedhikeid = ${selectedHikeId}
         `
       }, { headers: { "Content-Type": "application/json" } });
-
-      alert(`Planned hike "${selectedHike.name}" on ${timestamp}`);
+      alert("Timespan updated successfully.");
+      closeEditModal();
+      fetchCompletedHikes(userID);
     } catch (err) {
       console.error(err);
-      alert("Failed to plan hike. Please try again.");
+      alert("Failed to update timespan.");
     }
-
-    closeModals();
   };
 
-  const toggleFriendInvite = (id) => { setFriends(friends.map(f => f.id === id ? { ...f, invited: !f.invited } : f)); };
+  const openStartModal = (hike) => {
+    setSelectedUpcomingHikeId(hike.plannerid);
+    setStartPlannedAt(hike.planned_at ? new Date(hike.planned_at).toISOString().slice(11,16) : "");
+    setShowStartModal(true);
+  };
 
-  const fetchFriends = async () => {
+  const closeStartModal = () => {
+    setShowStartModal(false);
+    setSelectedUpcomingHikeId(null);
+    setStartPlannedAt("");
+  };
+
+  const handleStartHike = async () => {
+    if (!selectedUpcomingHikeId || !startPlannedAt) return;
     try {
-      const followRes = await axios.post(API_URL, { sql: `SELECT userid2 FROM follow_table WHERE userid1 = ${userID}` }, { headers: { "Content-Type": "application/json" } });
-      const userIds = followRes.data.rows.map(r => r.userid2);
-      if (!userIds.length) { setFriends([]); return; }
-      const userRes = await axios.post(API_URL, { sql: `SELECT userid FROM usertable WHERE userid IN (${userIds.join(",")})` }, { headers: { "Content-Type": "application/json" } });
-      setFriends(userRes.data.rows.map(u => ({ id: u.userid, name: `User ${u.userid}`, invited: false })));
-    } catch (err) { console.error(err); setFriends([]); }
-  };
-
-  const handleInvite = async () => {
-    if (!isDateValid(plannedDate)) { alert("Please select a valid future date before inviting friends."); return; }
-    setShowPlanModal(false);
-    await fetchFriends();
-    setShowInviteModal(true);
-  };
-
-  const confirmInvites = async () => {
-    if (!selectedHike || !isDateValid(plannedDate)) {
-      alert("Please select a valid future date for your hike.");
-      return;
-    }
-
-    const timestamp = plannedDate.includes(":") && plannedDate.length === 16
-      ? plannedDate.replace("T", " ") + ":00"
-      : plannedDate.replace("T", " ");
-
-    try {
-      const plannerRes = await axios.post(API_URL, {
-        sql: `
-          INSERT INTO planner_table (trailid, planned_at)
-          VALUES (${selectedHike.trailid}, '${timestamp}'::timestamp without time zone)
-          RETURNING plannerid
-        `
-      }, { headers: { "Content-Type": "application/json" } });
-
-      const newPlannerId = plannerRes.data.rows[0].plannerid;
-
       await axios.post(API_URL, {
         sql: `
-          INSERT INTO hike (plannerid, userid, iscoming)
-          VALUES (${newPlannerId}, ${userID}, true)
+          UPDATE planner_table
+          SET planned_at = DATE(planned_at) + TIME '${startPlannedAt}:00'
+          WHERE plannerid = ${selectedUpcomingHikeId}
         `
-      }, { headers: { "Content-Type": "application/json" } });
-
-      for (const f of friends.filter(f => f.invited)) {
-        await axios.post(API_URL, {
-          sql: `
-            INSERT INTO hike (plannerid, userid, iscoming)
-            VALUES (${newPlannerId}, ${f.id}, false)
-          `
-        }, { headers: { "Content-Type": "application/json" } });
-      }
-
-      alert(`Planned hike "${selectedHike.name}" on ${timestamp} with friends: ${friends.filter(f => f.invited).map(f => f.name).join(", ")}`);
+      }, { headers: { "Content-Type": "application/json" }});
+      alert("Planned time updated successfully.");
+      closeStartModal();
+      fetchUpcomingHikes(userID);
     } catch (err) {
       console.error(err);
-      alert("Failed to plan hike. Please try again.");
+      alert("Failed to update planned time.");
     }
-
-    closeModals();
   };
 
-  const isPlannable = isDateValid(plannedDate);
+  if (!userID) return <main className="bg-gray-50 min-h-screen pt-20 p-6 flex flex-col items-center"><p className="text-gray-500">Loading user information...</p></main>;
 
   return (
     <main className="bg-gray-50 min-h-screen pt-20 p-6 flex flex-col items-center">
-      <header className="mb-6"><h1 className="text-3xl font-bold text-gray-800">Logbook</h1></header>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Logbook</h1>
+      </header>
       <section className="flex gap-6 w-full max-w-6xl">
         <aside className="w-1/4 rounded-lg bg-white shadow-md p-4 flex flex-col gap-6">
           <section>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Filters</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Hike Filters</h2>
+            <section className="space-y-3">
+              {Object.keys(upcomingFilters).map(key => (
+                <section key={key} className="flex flex-col">
+                  <label htmlFor={`up-${key}`} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
+                  <input id={`up-${key}`} type="text" value={upcomingFilters[key]} onChange={e => setUpcomingFilters({ ...upcomingFilters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                </section>
+              ))}
+            </section>
+            <h2 className="text-lg font-semibold text-gray-800 mt-6 mb-4">Completed Hike Filters</h2>
             <section className="space-y-3">
               {Object.keys(filters).map(key => (
                 <section key={key} className="flex flex-col">
                   <label htmlFor={key} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
-                  <input id={key} type="text" value={filters[key]} onChange={e => setFilters({ ...filters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"/>
+                  <input id={key} type="text" value={filters[key]} onChange={e => setFilters({ ...filters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </section>
               ))}
             </section>
           </section>
-          <section className="h-48 bg-gray-100 border border-gray-300 rounded-lg flex items-center justify-center">
-            <p className="text-gray-400">Image goes here</p>
-          </section>
         </aside>
-        <section className="flex-1 rounded-lg bg-white shadow-md p-4 h-[800px] overflow-y-auto">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Trails</h2>
-          {loading ? <p className="text-gray-500">Loading...</p> : (
-            <section className="divide-y border rounded-md">
-              {filteredHikes.length > 0 ? filteredHikes.map(hike => (
-                <article key={hike.trailid} className="flex flex-col">
-                  <button onClick={() => setExpandedHike(expandedHike === hike.trailid ? null : hike.trailid)} className={`p-3 text-left flex justify-between items-center transition-colors ${expandedHike === hike.trailid ? "bg-green-100 text-green-800" : "hover:bg-gray-50 text-gray-800"}`}>
+        <section className="flex-1 rounded-lg bg-white shadow-md p-4 h-[800px] flex flex-col">
+          <section className="flex-1 border-b border-gray-300 overflow-y-auto p-2">
+            <h2 className="sticky top-0 bg-white z-10 text-xl font-semibold text-gray-800 mb-4 p-2">Upcoming Hikes</h2>
+            {loading ? <p className="text-gray-500">Loading...</p> :
+              (filteredUpcomingHikes.length > 0 ? filteredUpcomingHikes.map(hike => (
+                <article key={hike.plannerid} className="flex flex-col">
+                  <button onClick={() => setExpandedHike(expandedHike === hike.plannerid ? null : hike.plannerid)} className={`p-3 text-left flex justify-between items-center transition-colors ${expandedHike === hike.plannerid ? "bg-green-100 text-green-800" : "hover:bg-gray-50 text-gray-800"}`}>
                     <p className="font-medium">{hike.name || `Trail #${hike.trailid}`}</p>
-                    <p aria-hidden="true" className="ml-2 text-gray-500">{expandedHike === hike.trailid ? "▲" : "▼"}</p>
+                    <p aria-hidden="true" className="ml-2 text-gray-500">{expandedHike === hike.plannerid ? "▲" : "▼"}</p>
                   </button>
-                  {expandedHike === hike.trailid && (
-                    <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col h-full">
-                      <section className="space-y-2 flex-1 overflow-y-auto">
-                        <p><strong>Location:</strong> {hike.location || "Unknown"}</p>
-                        <p><strong>Difficulty:</strong> {hike.difficulty?.toString() || "Unknown"}</p>
-                        <p><strong>Duration:</strong> {hike.duration ? new Date(hike.duration).toLocaleDateString() : "Unknown"}</p>
-                        <p><strong>Description:</strong> {hike.description || "No description"}</p>
-                      </section>
-                      <button onClick={() => openPlanModal(hike)} className="mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors self-end">Plan Hike</button>
+                  {expandedHike === hike.plannerid && (
+                    <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col max-h-[200px] overflow-y-auto relative">
+                      <p><strong>Trail Name:</strong> {hike.name}</p>
+                      <p><strong>Location:</strong> {hike.location}</p>
+                      <p><strong>Difficulty:</strong> {hike.difficulty}</p>
+                      <p><strong>Duration:</strong> {hike.duration || "Unknown"}</p>
+                      <p><strong>Description:</strong> {hike.description}</p>
+                      <p><strong>Planned At:</strong> {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}</p>
+                      <button onClick={() => openStartModal(hike)} className="mt-2 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors absolute bottom-2 right-2">Start</button>
                     </section>
                   )}
                 </article>
-              )) : <p className="p-3 text-gray-500">No hikes found</p>}
-            </section>
-          )}
+              )) : <p className="p-3 text-gray-500">No upcoming hikes found</p>)}
+          </section>
+          <section className="flex-1 overflow-y-auto p-2">
+            <h2 className="sticky top-0 bg-white z-10 text-xl font-semibold text-gray-800 mb-4 p-2">Completed Hikes</h2>
+            {loading ? <p className="text-gray-500">Loading...</p> :
+              (filteredCompletedHikes.length > 0 ? filteredCompletedHikes.map(hike => (
+                <article key={hike.completedhikeid} className="flex flex-col">
+                  <button onClick={() => setExpandedHike(expandedHike === hike.completedhikeid ? null : hike.completedhikeid)} className={`p-3 text-left flex justify-between items-center transition-colors ${expandedHike === hike.completedhikeid ? "bg-green-100 text-green-800" : "hover:bg-gray-50 text-gray-800"}`}>
+                    <p className="font-medium">{hike.name || `Trail #${hike.trailid}`}</p>
+                    <p aria-hidden="true" className="ml-2 text-gray-500">{expandedHike === hike.completedhikeid ? "▲" : "▼"}</p>
+                  </button>
+                  {expandedHike === hike.completedhikeid && (
+                    <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col max-h-[200px] overflow-y-auto">
+                      <p><strong>Trail Name:</strong> {hike.name}</p>
+                      <p><strong>Location:</strong> {hike.location}</p>
+                      <p><strong>Difficulty:</strong> {hike.difficulty}</p>
+                      <p><strong>Duration:</strong> {hike.duration || "Unknown"}</p>
+                      <p><strong>Description:</strong> {hike.description}</p>
+                      <p><strong>Date Completed:</strong> {hike.date ? new Date(hike.date).toLocaleDateString() : "Unknown"}</p>
+                      <p><strong>Time Span:</strong> {formatTimespan(hike.timespan)}</p>
+                      <button onClick={() => openEditModal(hike)} className="mt-2 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Edit</button>
+                    </section>
+                  )}
+                </article>
+              )) : <p className="p-3 text-gray-500">No completed hikes found</p>)}
+          </section>
         </section>
       </section>
 
-      {showPlanModal && (
+      {showEditModal && (
         <section className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <section className="bg-white rounded-lg shadow-lg p-6 w-96 flex flex-col gap-4">
-            <h2 className="text-lg font-semibold text-gray-800">Plan Hike: {selectedHike?.name}</h2>
-            <input type="datetime-local" value={plannedDate} onChange={e => setPlannedDate(e.target.value)} className="rounded-md border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500"/>
-            <section className="flex justify-between">
-              <button onClick={handleInvite} disabled={!isPlannable} className={`px-4 py-2 rounded transition-colors ${isPlannable ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}>Invite</button>
-              <button onClick={handlePlanHike} disabled={!isPlannable} className={`px-4 py-2 rounded transition-colors ${isPlannable ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}>Plan Hike</button>
+            <h2 className="text-lg font-semibold text-gray-800">Edit Timespan</h2>
+            <input type="text" value={editTimespan} onChange={e => setEditTimespan(e.target.value)} placeholder="HH:MM:SS" className="rounded-md border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <section className="flex justify-end gap-2 mt-2">
+              <button onClick={handleUpdateTimespan} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">Save</button>
+              <button onClick={closeEditModal} className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors">Cancel</button>
             </section>
-            <button onClick={closeModals} className="mt-2 text-sm text-gray-500 hover:underline self-end">Cancel</button>
           </section>
         </section>
       )}
 
-      {showInviteModal && (
+      {showStartModal && (
         <section className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <section className="bg-white rounded-lg shadow-lg p-6 w-96 flex flex-col gap-4">
-            <h2 className="text-lg font-semibold text-gray-800">Invite Friends</h2>
-            {plannedDate && (
-              <p className="text-gray-700">Planned Date: {formatTime(plannedDate).datePart} {formatTime(plannedDate).timePart}</p>
-            )}
-            <ul className="flex-1 overflow-y-auto divide-y">
-              {friends.map(friend => (
-                <li key={friend.id} className="flex justify-between items-center py-2">
-                  <p>{friend.name}</p>
-                  <button onClick={() => toggleFriendInvite(friend.id)} className={`px-3 py-1 rounded ${friend.invited ? "bg-green-500 text-white" : "bg-gray-200 text-gray-700"}`}>{friend.invited ? "Invited" : "Invite"}</button>
-                </li>
-              ))}
-            </ul>
-            <button onClick={confirmInvites} disabled={!isPlannable} className={`mt-4 px-4 py-2 rounded transition-colors ${isPlannable ? "bg-green-500 text-white hover:bg-green-600" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}>Plan Hike</button>
-            <button onClick={closeModals} className="mt-2 text-sm text-gray-500 hover:underline self-end">Cancel</button>
+            <h2 className="text-lg font-semibold text-gray-800">Update Planned Time</h2>
+            <input
+              type="time"
+              value={startPlannedAt}
+              onChange={e => setStartPlannedAt(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <section className="flex justify-end gap-2 mt-2">
+              <button onClick={handleStartHike} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">Save</button>
+              <button onClick={closeStartModal} className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors">Cancel</button>
+            </section>
           </section>
         </section>
       )}
