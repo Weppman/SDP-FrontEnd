@@ -16,16 +16,16 @@ export default function Toolbar() {
             Home
           </Link>
           <Link
+            to="/planHike"
+            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
+          >
+            Plan Hike
+          </Link>
+          <Link
             to="/logbook"
             className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
           >
             Logbook
-          </Link>
-          <Link
-            to="/history"
-            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
-          >
-            History
           </Link>
           <Link
             to="/profile"
