@@ -1,8 +1,8 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./home/home.js";
-import Logbook from "./logbook.js"; 
-import History from "./history.js";
+import PlanHike from "./planHike.js"; 
+import Logbook from "./logbook.js";
 import Profile from "./profile/profile.js";
 import Toolbar from "./toolbar/toolbar.js";
 
@@ -17,8 +17,8 @@ function App() {
       <section className="p-4">
         <Routes>
           <Route path="/" element={<Home/>} />
+          <Route path="/planHike" element={<PlanHike />} />
           <Route path="/logbook" element={<Logbook />} />
-          <Route path="/history" element={<History />} />
           <Route path="/profile" element={<Profile />} />
           
         </Routes>
