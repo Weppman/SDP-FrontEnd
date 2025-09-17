@@ -13,20 +13,20 @@ export default function PlanHike() {
   const [selectedHike, setSelectedHike] = useState(null);
   const [plannedDate, setPlannedDate] = useState("");
   const [friends, setFriends] = useState([]);
-  const API_URL = "https://sdp-backend-production.up.railway.app/query";
+  const API_URL = "https://sdp-backend-production.up.railway.app";
 
   useEffect(() => { fetchHikes(); }, []);
 
-  const fetchHikes = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.post(API_URL, { sql: "SELECT * FROM trail_table ORDER BY trailid ASC" }, { headers: { "Content-Type": "application/json" } });
-      setHikes(res.data.rows);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
+const fetchHikes = async () => {
+  setLoading(true);
+  try {
+    const res = await axios.get(`${API_URL}/trails`);
+    setHikes(res.data.trails);
+  } catch (err) {
+    console.error(err);
+  }
+  setLoading(false);
+};
 
   const filteredHikes = hikes.filter(hike =>
     (hike.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
@@ -63,54 +63,44 @@ export default function PlanHike() {
     return { datePart, timePart };
   };
 
-  const handlePlanHike = async () => {
-    if (!selectedHike || !isDateValid(plannedDate)) {
-      alert("Please select a valid future date for your hike.");
-      return;
+const handlePlanHike = async () => {
+  if (!selectedHike || !isDateValid(plannedDate)) {
+    alert("Please select a valid future date for your hike.");
+    return;
+  }
+
+  try {
+    const res = await axios.post(`${API_URL}/plan-hike`, {
+      trailId: selectedHike.trailid,
+      plannedAt: plannedDate,
+      userId: userID,
+      invitedFriends: [] // empty for now, or send selected friend ids
+    });
+
+    if (res.data.success) {
+      alert(`Planned hike "${selectedHike.name}" successfully!`);
     }
+  } catch (err) {
+    console.error(err);
+    alert("Failed to plan hike. Please try again.");
+  }
 
-    const timestamp = plannedDate.includes(":") && plannedDate.length === 16
-      ? plannedDate.replace("T", " ") + ":00"
-      : plannedDate.replace("T", " ");
+  closeModals();
+};
 
-    try {
-      const plannerRes = await axios.post(API_URL, {
-        sql: `
-          INSERT INTO planner_table (trailid, planned_at)
-          VALUES (${selectedHike.trailid}, '${timestamp}'::timestamp without time zone)
-          RETURNING plannerid
-        `
-      }, { headers: { "Content-Type": "application/json" } });
-
-      const newPlannerId = plannerRes.data.rows[0].plannerid;
-
-      await axios.post(API_URL, {
-        sql: `
-          INSERT INTO hike (plannerid, userid, iscoming)
-          VALUES (${newPlannerId}, ${userID}, true)
-        `
-      }, { headers: { "Content-Type": "application/json" } });
-
-      alert(`Planned hike "${selectedHike.name}" on ${timestamp}`);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to plan hike. Please try again.");
-    }
-
-    closeModals();
-  };
 
   const toggleFriendInvite = (id) => { setFriends(friends.map(f => f.id === id ? { ...f, invited: !f.invited } : f)); };
 
-  const fetchFriends = async () => {
-    try {
-      const followRes = await axios.post(API_URL, { sql: `SELECT userid2 FROM follow_table WHERE userid1 = ${userID}` }, { headers: { "Content-Type": "application/json" } });
-      const userIds = followRes.data.rows.map(r => r.userid2);
-      if (!userIds.length) { setFriends([]); return; }
-      const userRes = await axios.post(API_URL, { sql: `SELECT userid FROM usertable WHERE userid IN (${userIds.join(",")})` }, { headers: { "Content-Type": "application/json" } });
-      setFriends(userRes.data.rows.map(u => ({ id: u.userid, name: `User ${u.userid}`, invited: false })));
-    } catch (err) { console.error(err); setFriends([]); }
-  };
+const fetchFriends = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/friends/${userID}`);
+    setFriends(res.data.friends.map(f => ({ ...f, invited: false })));
+  } catch (err) {
+    console.error(err);
+    setFriends([]);
+  }
+};
+
 
   const handleInvite = async () => {
     if (!isDateValid(plannedDate)) { alert("Please select a valid future date before inviting friends."); return; }
@@ -119,51 +109,32 @@ export default function PlanHike() {
     setShowInviteModal(true);
   };
 
-  const confirmInvites = async () => {
-    if (!selectedHike || !isDateValid(plannedDate)) {
-      alert("Please select a valid future date for your hike.");
-      return;
+const confirmInvites = async () => {
+  if (!selectedHike || !isDateValid(plannedDate)) {
+    alert("Please select a valid future date for your hike.");
+    return;
+  }
+
+  try {
+    const invitedIds = friends.filter(f => f.invited).map(f => f.id);
+    const res = await axios.post(`${API_URL}/plan-hike`, {
+      trailId: selectedHike.trailid,
+      plannedAt: plannedDate,
+      userId: userID,
+      invitedFriends: invitedIds
+    });
+
+    if (res.data.success) {
+      alert(`Planned hike "${selectedHike.name}" with friends: ${invitedIds.join(", ")}`);
     }
+  } catch (err) {
+    console.error(err);
+    alert("Failed to plan hike with friends. Please try again.");
+  }
 
-    const timestamp = plannedDate.includes(":") && plannedDate.length === 16
-      ? plannedDate.replace("T", " ") + ":00"
-      : plannedDate.replace("T", " ");
+  closeModals();
+};
 
-    try {
-      const plannerRes = await axios.post(API_URL, {
-        sql: `
-          INSERT INTO planner_table (trailid, planned_at)
-          VALUES (${selectedHike.trailid}, '${timestamp}'::timestamp without time zone)
-          RETURNING plannerid
-        `
-      }, { headers: { "Content-Type": "application/json" } });
-
-      const newPlannerId = plannerRes.data.rows[0].plannerid;
-
-      await axios.post(API_URL, {
-        sql: `
-          INSERT INTO hike (plannerid, userid, iscoming)
-          VALUES (${newPlannerId}, ${userID}, true)
-        `
-      }, { headers: { "Content-Type": "application/json" } });
-
-      for (const f of friends.filter(f => f.invited)) {
-        await axios.post(API_URL, {
-          sql: `
-            INSERT INTO hike (plannerid, userid, iscoming)
-            VALUES (${newPlannerId}, ${f.id}, false)
-          `
-        }, { headers: { "Content-Type": "application/json" } });
-      }
-
-      alert(`Planned hike "${selectedHike.name}" on ${timestamp} with friends: ${friends.filter(f => f.invited).map(f => f.name).join(", ")}`);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to plan hike. Please try again.");
-    }
-
-    closeModals();
-  };
 
   const isPlannable = isDateValid(plannedDate);
 
