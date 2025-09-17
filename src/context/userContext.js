@@ -12,14 +12,14 @@ export const UserProvider = ({ children }) => {
     userID: null,
     authID: null,
     biography: "",
-    status: "visitor", // default
+    status: "visitor",
   });
 
-  const API_URL = "https://sdp-backend-production.up.railway.app/query";
+  const API_URL = "https://sdp-backend-production.up.railway.app";
 
   useEffect(() => {
     const syncUserWithBackend = async () => {
-      if (!isLoaded) return; // wait for Clerk
+      if (!isLoaded) return;
       if (!user) {
         setUserData({ userID: null, authID: null, biography: "", status: "visitor" });
         return;
@@ -29,29 +29,26 @@ export const UserProvider = ({ children }) => {
         const token = await getToken();
         const authID = user.id;
 
-        // Check if user exists
-        const selectQuery = { sql: `SELECT * FROM usertable WHERE authid='${authID}' LIMIT 1` };
-        const res = await axios.post(API_URL, selectQuery, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+        // 1️⃣ Check if user exists
+        const res = await axios.get(`${API_URL}/user/${authID}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
         });
 
         let userInfo;
-        if (!res.data.rows || res.data.rows.length === 0) {
-          // Insert new user
-          const insertQuery = { sql: `INSERT INTO usertable (authid, biography) VALUES ('${authID}', '') RETURNING *` };
-          const insertRes = await axios.post(API_URL, insertQuery, {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          userInfo = insertRes.data.rows[0];
+        if (!res.data.user) {
+          // 2️⃣ User doesn't exist → create
+          const createRes = await axios.post(
+            `${API_URL}/user`,
+            { authID, biography: "" },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              withCredentials: true,
+            }
+          );
+          userInfo = createRes.data.user;
         } else {
-          // User exists
-          userInfo = res.data.rows[0];
+          userInfo = res.data.user;
         }
 
         setUserData({

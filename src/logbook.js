@@ -17,23 +17,14 @@ export default function Logbook() {
   const [startPlannedAt, setStartPlannedAt] = useState("");
   const [selectedUpcomingHikeId, setSelectedUpcomingHikeId] = useState(null);
 
-  const API_URL = "https://sdp-backend-production.up.railway.app/query";
+  const API_URL = "https://sdp-backend-production.up.railway.app";
 
-  const fetchCompletedHikes = async (id) => {
-    if (!id) return;
+  // Fetch completed hikes with credentials
+  const fetchCompletedHikes = async (userId) => {
+    if (!userId) return;
     setLoading(true);
     try {
-      const query = {
-        sql: `
-          SELECT ch.completedhikeid, ch.userid, ch.trailid, ch.date, ch.timespan,
-                 t.name, t.location, t.difficulty, t.duration, t.description
-          FROM completed_hike_table ch
-          JOIN trail_table t ON ch.trailid = t.trailid
-          WHERE ch.userid = ${id}
-          ORDER BY ch.completedhikeid ASC
-        `
-      };
-      const res = await axios.post(API_URL, query, { headers: { "Content-Type": "application/json" } });
+      const res = await axios.get(`${API_URL}/completed-hikes/${userId}`, { withCredentials: true });
       setCompletedHikes(res.data.rows);
     } catch (err) {
       console.error(err);
@@ -41,22 +32,12 @@ export default function Logbook() {
     setLoading(false);
   };
 
-  const fetchUpcomingHikes = async (id) => {
-    if (!id) return;
+  // Fetch upcoming hikes with credentials
+  const fetchUpcomingHikes = async (userId) => {
+    if (!userId) return;
     setLoading(true);
     try {
-      const query = {
-        sql: `
-          SELECT p.plannerid, p.trailid, p.planned_at,
-                 t.name, t.location, t.difficulty, t.duration, t.description
-          FROM planner_table p
-          JOIN hike h ON h.plannerid = p.plannerid
-          JOIN trail_table t ON t.trailid = p.trailid
-          WHERE h.userid = ${id} AND h.iscoming = true
-          ORDER BY p.planned_at ASC
-        `
-      };
-      const res = await axios.post(API_URL, query, { headers: { "Content-Type": "application/json" } });
+      const res = await axios.get(`${API_URL}/upcoming-hikes/${userId}`, { withCredentials: true });
       setUpcomingHikes(res.data.rows);
     } catch (err) {
       console.error(err);
@@ -108,13 +89,10 @@ export default function Logbook() {
   const handleUpdateTimespan = async () => {
     if (!selectedHikeId || !editTimespan) return;
     try {
-      await axios.post(API_URL, {
-        sql: `
-          UPDATE completed_hike_table
-          SET timespan = '${editTimespan}'::interval
-          WHERE completedhikeid = ${selectedHikeId}
-        `
-      }, { headers: { "Content-Type": "application/json" } });
+      await axios.post(`${API_URL}/update-timespan`, 
+        { completedHikeId: selectedHikeId, timespan: editTimespan },
+        { headers: { "Content-Type": "application/json" }, withCredentials: true }
+      );
       alert("Timespan updated successfully.");
       closeEditModal();
       fetchCompletedHikes(userID);
@@ -139,13 +117,10 @@ export default function Logbook() {
   const handleStartHike = async () => {
     if (!selectedUpcomingHikeId || !startPlannedAt) return;
     try {
-      await axios.post(API_URL, {
-        sql: `
-          UPDATE planner_table
-          SET planned_at = DATE(planned_at) + TIME '${startPlannedAt}:00'
-          WHERE plannerid = ${selectedUpcomingHikeId}
-        `
-      }, { headers: { "Content-Type": "application/json" }});
+      await axios.post(`${API_URL}/update-planned-time`, 
+        { plannerId: selectedUpcomingHikeId, plannedTime: startPlannedAt },
+        { headers: { "Content-Type": "application/json" }, withCredentials: true }
+      );
       alert("Planned time updated successfully.");
       closeStartModal();
       fetchUpcomingHikes(userID);
@@ -154,6 +129,7 @@ export default function Logbook() {
       alert("Failed to update planned time.");
     }
   };
+
 
   if (!userID) return <main className="bg-gray-50 min-h-screen pt-20 p-6 flex flex-col items-center"><p className="text-gray-500">Loading user information...</p></main>;
 
