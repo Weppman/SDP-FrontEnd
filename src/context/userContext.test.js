@@ -1,5 +1,5 @@
 import React from "react";
-import { render, waitFor, act } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { UserProvider, useUserContext } from "./userContext";
 import * as clerk from "@clerk/clerk-react";
 import axios from "axios";
@@ -13,14 +13,13 @@ describe("UserContext", () => {
   });
 
   it("sets userData correctly when user exists", async () => {
-    // Mock Clerk user
     const mockUser = { id: "auth123" };
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
-    // Mock backend response
-    axios.post.mockResolvedValueOnce({
-      data: { rows: [{ userid: 1, authid: "auth123", biography: "bio" }] },
+    // Mock backend GET response
+    axios.get.mockResolvedValueOnce({
+      data: { user: { userid: 1, authid: "auth123", biography: "bio" } },
     });
 
     let contextValue;
@@ -64,57 +63,61 @@ describe("UserContext", () => {
   });
 
   it("handles backend errors gracefully", async () => {
-  const mockUser = { id: "auth123" };
-  clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
-  clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
+    const mockUser = { id: "auth123" };
+    clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
+    clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
-  // Simulate axios failure
-  axios.post.mockRejectedValue(new Error("Backend failure"));
+    // Simulate GET failure
+    axios.get.mockRejectedValue(new Error("Backend failure"));
 
-  let contextValue;
-  const TestComponent = () => {
-    contextValue = useUserContext();
-    return null;
-  };
+    let contextValue;
+    const TestComponent = () => {
+      contextValue = useUserContext();
+      return null;
+    };
 
-  render(
-    <UserProvider>
-      <TestComponent />
-    </UserProvider>
-  );
+    render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
 
-  await waitFor(() => {
-    expect(contextValue.status).toBe("visitor"); // fallback
-    expect(contextValue.userID).toBeNull();
+    await waitFor(() => {
+      expect(contextValue.status).toBe("visitor"); // fallback
+      expect(contextValue.userID).toBeNull();
+      expect(contextValue.authID).toBeNull();
+    });
   });
-});
 
-it("inserts new user if not exists", async () => {
-  const mockUser = { id: "auth999" };
-  clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
-  clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token999") });
+  it("inserts new user if not exists", async () => {
+    const mockUser = { id: "auth999" };
+    clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
+    clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token999") });
 
-  // First call returns empty rows
-  axios.post.mockResolvedValueOnce({ data: { rows: [] } });
-  // Second call simulates insert returning new user
-  axios.post.mockResolvedValueOnce({ data: { rows: [{ userid: 99, authid: "auth999", biography: "" }] } });
+    // GET returns no user
+    axios.get.mockResolvedValueOnce({ data: { user: null } });
+    // POST to create new user
+    axios.post.mockResolvedValueOnce({
+      data: { user: { userid: 99, authid: "auth999", biography: "" } },
+    });
 
-  let contextValue;
-  const TestComponent = () => {
-    contextValue = useUserContext();
-    return null;
-  };
+    let contextValue;
+    const TestComponent = () => {
+      contextValue = useUserContext();
+      return null;
+    };
 
-  render(
-    <UserProvider>
-      <TestComponent />
-    </UserProvider>
-  );
+    render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
 
-  await waitFor(() => {
-    expect(contextValue.userID).toBe(99);
-    expect(contextValue.status).toBe("user");
+    await waitFor(() => {
+      expect(contextValue.userID).toBe(99);
+      expect(contextValue.status).toBe("user");
+      expect(contextValue.authID).toBe("auth999");
+      expect(contextValue.biography).toBe("");
+    });
   });
-});
-
 });
