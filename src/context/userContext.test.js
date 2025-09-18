@@ -1,5 +1,5 @@
 import React from "react";
-import { render, waitFor, act } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { UserProvider, useUserContext } from "./userContext";
 import * as clerk from "@clerk/clerk-react";
 import axios from "axios";
@@ -17,7 +17,6 @@ describe("UserContext", () => {
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
-    // Mock backend GET response
     axios.get.mockResolvedValueOnce({
       data: { user: { userid: 1, authid: "auth123", biography: "bio" } },
     });
@@ -28,13 +27,11 @@ describe("UserContext", () => {
       return null;
     };
 
-    await act(async () => {
-      render(
-        <UserProvider>
-          <TestComponent />
-        </UserProvider>
-      );
-    });
+    render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
 
     await waitFor(() => expect(contextValue.userID).toBe(1));
     expect(contextValue.authID).toBe("auth123");
@@ -52,13 +49,11 @@ describe("UserContext", () => {
       return null;
     };
 
-    await act(async () => {
-      render(
-        <UserProvider>
-          <TestComponent />
-        </UserProvider>
-      );
-    });
+    render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
 
     await waitFor(() => expect(contextValue.status).toBe("visitor"));
     expect(contextValue.userID).toBeNull();
@@ -71,7 +66,6 @@ describe("UserContext", () => {
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
-    // Simulate GET failure
     axios.get.mockRejectedValue(new Error("Backend failure"));
 
     let contextValue;
@@ -80,16 +74,14 @@ describe("UserContext", () => {
       return null;
     };
 
-    await act(async () => {
-      render(
-        <UserProvider>
-          <TestComponent />
-        </UserProvider>
-      );
-    });
+    render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
 
     await waitFor(() => {
-      expect(contextValue.status).toBe("visitor"); // fallback
+      expect(contextValue.status).toBe("visitor");
       expect(contextValue.userID).toBeNull();
       expect(contextValue.authID).toBeNull();
     });
@@ -100,9 +92,7 @@ describe("UserContext", () => {
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token999") });
 
-    // GET returns no user
     axios.get.mockResolvedValueOnce({ data: { user: null } });
-    // POST to create new user
     axios.post.mockResolvedValueOnce({
       data: { user: { userid: 99, authid: "auth999", biography: "" } },
     });
@@ -113,13 +103,11 @@ describe("UserContext", () => {
       return null;
     };
 
-    await act(async () => {
-      render(
-        <UserProvider>
-          <TestComponent />
-        </UserProvider>
-      );
-    });
+    render(
+      <UserProvider>
+        <TestComponent />
+      </UserProvider>
+    );
 
     await waitFor(() => {
       expect(contextValue.userID).toBe(99);
