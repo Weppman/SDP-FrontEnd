@@ -13,14 +13,13 @@ describe("UserContext", () => {
   });
 
   it("sets userData correctly when user exists", async () => {
-    // Mock Clerk user
     const mockUser = { id: "auth123" };
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
-    // Mock backend response
-    axios.post.mockResolvedValueOnce({
-      data: { rows: [{ userid: 1, authid: "auth123", biography: "bio" }] },
+    // Mock backend: user exists
+    axios.get.mockResolvedValueOnce({
+      data: { user: { userid: 1, authid: "auth123", biography: "bio" } }
     });
 
     let contextValue;
@@ -29,11 +28,13 @@ describe("UserContext", () => {
       return null;
     };
 
-    render(
-      <UserProvider>
-        <TestComponent />
-      </UserProvider>
-    );
+    await act(async () => {
+      render(
+        <UserProvider>
+          <TestComponent />
+        </UserProvider>
+      );
+    });
 
     await waitFor(() => expect(contextValue.userID).toBe(1));
     expect(contextValue.authID).toBe("auth123");
@@ -51,11 +52,13 @@ describe("UserContext", () => {
       return null;
     };
 
-    render(
-      <UserProvider>
-        <TestComponent />
-      </UserProvider>
-    );
+    await act(async () => {
+      render(
+        <UserProvider>
+          <TestComponent />
+        </UserProvider>
+      );
+    });
 
     await waitFor(() => expect(contextValue.status).toBe("visitor"));
     expect(contextValue.userID).toBeNull();
@@ -63,58 +66,63 @@ describe("UserContext", () => {
     expect(contextValue.biography).toBe("");
   });
 
+  it("inserts new user if not exists", async () => {
+    const mockUser = { id: "auth999" };
+    clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
+    clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token999") });
+
+    // Backend: user does NOT exist initially
+    axios.get.mockResolvedValueOnce({ data: { user: null } });
+    // Backend: create new user
+    axios.post.mockResolvedValueOnce({
+      data: { user: { userid: 99, authid: "auth999", biography: "" } }
+    });
+
+    let contextValue;
+    const TestComponent = () => {
+      contextValue = useUserContext();
+      return null;
+    };
+
+    await act(async () => {
+      render(
+        <UserProvider>
+          <TestComponent />
+        </UserProvider>
+      );
+    });
+
+    await waitFor(() => {
+      expect(contextValue.userID).toBe(99);
+      expect(contextValue.status).toBe("user");
+    });
+  });
+
   it("handles backend errors gracefully", async () => {
-  const mockUser = { id: "auth123" };
-  clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
-  clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
+    const mockUser = { id: "auth123" };
+    clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
+    clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
-  // Simulate axios failure
-  axios.post.mockRejectedValue(new Error("Backend failure"));
+    // Simulate axios GET failure
+    axios.get.mockRejectedValueOnce(new Error("Backend failure"));
 
-  let contextValue;
-  const TestComponent = () => {
-    contextValue = useUserContext();
-    return null;
-  };
+    let contextValue;
+    const TestComponent = () => {
+      contextValue = useUserContext();
+      return null;
+    };
 
-  render(
-    <UserProvider>
-      <TestComponent />
-    </UserProvider>
-  );
+    await act(async () => {
+      render(
+        <UserProvider>
+          <TestComponent />
+        </UserProvider>
+      );
+    });
 
-  await waitFor(() => {
-    expect(contextValue.status).toBe("visitor"); // fallback
-    expect(contextValue.userID).toBeNull();
+    await waitFor(() => {
+      expect(contextValue.status).toBe("visitor"); // fallback
+      expect(contextValue.userID).toBeNull();
+    });
   });
-});
-
-it("inserts new user if not exists", async () => {
-  const mockUser = { id: "auth999" };
-  clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
-  clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token999") });
-
-  // First call returns empty rows
-  axios.post.mockResolvedValueOnce({ data: { rows: [] } });
-  // Second call simulates insert returning new user
-  axios.post.mockResolvedValueOnce({ data: { rows: [{ userid: 99, authid: "auth999", biography: "" }] } });
-
-  let contextValue;
-  const TestComponent = () => {
-    contextValue = useUserContext();
-    return null;
-  };
-
-  render(
-    <UserProvider>
-      <TestComponent />
-    </UserProvider>
-  );
-
-  await waitFor(() => {
-    expect(contextValue.userID).toBe(99);
-    expect(contextValue.status).toBe("user");
-  });
-});
-
 });
