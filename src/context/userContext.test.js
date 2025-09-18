@@ -17,6 +17,7 @@ describe("UserContext", () => {
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
+    // Mock backend GET response
     axios.get.mockResolvedValueOnce({
       data: { user: { userid: 1, authid: "auth123", biography: "bio" } },
     });
@@ -66,6 +67,7 @@ describe("UserContext", () => {
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
 
+    // Simulate GET failure
     axios.get.mockRejectedValue(new Error("Backend failure"));
 
     let contextValue;
@@ -81,7 +83,7 @@ describe("UserContext", () => {
     );
 
     await waitFor(() => {
-      expect(contextValue.status).toBe("visitor");
+      expect(contextValue.status).toBe("visitor"); // fallback
       expect(contextValue.userID).toBeNull();
       expect(contextValue.authID).toBeNull();
     });
@@ -92,7 +94,9 @@ describe("UserContext", () => {
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token999") });
 
+    // GET returns no user
     axios.get.mockResolvedValueOnce({ data: { user: null } });
+    // POST to create new user
     axios.post.mockResolvedValueOnce({
       data: { user: { userid: 99, authid: "auth999", biography: "" } },
     });
