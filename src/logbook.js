@@ -147,7 +147,7 @@ const handleStartHike = async (plannerId) => {
   const handleStopHike = async (plannerId) => {
     if (!plannerId || !userID) return;
     try {
-      const res = await axios.post(`${API_URL}/stop-hike`, { plannerId, userId: userID }, { withCredentials: true });
+      await axios.post(`${API_URL}/stop-hike`, { plannerId, userId: userID }, { withCredentials: true });
       setUpcomingHikes(prev => prev.filter(h => h.plannerid !== plannerId));
       fetchCompletedHikes();
     } catch (err) { console.error(err); }
