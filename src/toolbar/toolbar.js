@@ -33,7 +33,6 @@ export default function Toolbar() {
           >
             Profile
           </Link>
-          
         </section>
 
         {/* Right Auth Panel */}

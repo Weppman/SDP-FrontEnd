@@ -7,7 +7,6 @@ import Profile from "./profile/profile.js";
 import Toolbar from "./toolbar/toolbar.js";
 
 
-
 function App() {
   return (
     <Router>
@@ -19,8 +18,7 @@ function App() {
           <Route path="/" element={<Home/>} />
           <Route path="/planHike" element={<PlanHike />} />
           <Route path="/logbook" element={<Logbook />} />
-          <Route path="/profile" element={<Profile />} />
-          
+          <Route path="/profile" element={<Profile />} />  
         </Routes>
       </section>
     </Router>
