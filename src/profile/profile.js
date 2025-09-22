@@ -10,10 +10,11 @@ import {
   FaChartBar,
   FaUserFriends,
 } from "react-icons/fa";
-import { useUser } from "@clerk/clerk-react";
 import { useUserContext } from "../context/userContext";
 import { useEffect } from "react";
 import Stats from "./stats";
+import ViewProfileButton from "./viewProfile";
+import { useParams } from "react-router-dom";
 
 // Global goals hardcoded for now
 // Sample hikes for pinning
@@ -38,37 +39,16 @@ const sampleHikes = [
   },
 ];
 
-// Sample friends
-const sampleFriends = [
-  {
-    id: 1,
-    name: "Alice Smith",
-    avatar: "https://i.pravatar.cc/50?img=1",
-    status: "Loves mountain hikes",
-    online: true,
-  },
-  {
-    id: 2,
-    name: "Bob Johnson",
-    avatar: "https://i.pravatar.cc/50?img=2",
-    status: "Exploring the outdoors",
-    online: false,
-  },
-  {
-    id: 3,
-    name: "Charlie Lee",
-    avatar: "https://i.pravatar.cc/50?img=3",
-    status: "Trail runner",
-    online: true,
-  },
-];
-
 export default function Profile() {
-  const { user } = useUser(); // get the logged-in user
-  const { userID } = useUserContext();
-  const API_URL = "https://sdp-backend-production.up.railway.app/query";
-  const displayName = user?.username;
-  const avatarUrl = user?.imageUrl;
+  const { userID: routeUserID } = useParams(); // <-- get userID from URL
+  const { userID: loggedInUserID } = useUserContext(); // optional
+  const isOwnProfile = !routeUserID || routeUserID === loggedInUserID;
+  const userID = isOwnProfile ? loggedInUserID : routeUserID;
+  const [profileUser, setProfileUser] = useState(null);
+  console.log("routeUserID:", routeUserID, "loggedInUserID:", loggedInUserID);
+  console.log("Using userID:", userID);
+  const API_URL = "https://sdp-backend-production.up.railway.app";
+  console.log(userID);
   const [activeTab, setActiveTab] = useState("global");
   const [userGoals, setUserGoals] = useState([]);
   const [loadingGoals, setLoadingGoals] = useState(true);
@@ -80,7 +60,6 @@ export default function Profile() {
   });
   const [goalToDelete, setGoalToDelete] = useState(null);
   const [hikes, setHikes] = useState(sampleHikes);
-  const [friends, setFriends] = useState(sampleFriends);
   const [globalGoals, setGlobalGoals] = useState([]);
   const [loadingGlobalGoals, setLoadingGlobalGoals] = useState(true);
   const [completedGlobalGoals, setCompletedGlobalGoals] = useState([]);
@@ -90,24 +69,81 @@ export default function Profile() {
     useState(true);
   const [completedHikesData, setCompletedHikesData] = useState(null);
   const [loadingHikes, setLoadingHikes] = useState(true);
+  const [profileFriends, setProfileFriends] = useState([]);
+  const [myFollowing, setMyFollowing] = useState([]);
+
+  // Clear ALL state when userID changes - this prevents stale data
+  useEffect(() => {
+    if (!userID) return;
+
+    // Clear all state immediately when userID changes
+    setProfileUser(null);
+    setUserGoals([]);
+    setGlobalGoals([]);
+    setProfileFriends([]);
+    setCompletedGlobalGoals([]);
+    setCompletedPersonalGoals([]);
+    setCompletedHikesData(null);
+
+    // Reset loading states
+    setLoadingGoals(true);
+    setLoadingGlobalGoals(true);
+    setLoadingCompletedGlobal(true);
+    setLoadingCompletedPersonal(true);
+    setLoadingHikes(true);
+  }, [userID]);
+
+  // Fetch profile friends - this should load the friends of the profile being viewed
+  useEffect(() => {
+    if (!loggedInUserID || !userID) return;
+
+    async function fetchData() {
+      try {
+        // 1️⃣ Fetch my following first
+        const myFollowingRes = await fetch(
+          `${API_URL}/profile/${loggedInUserID}/friends`,
+        );
+        const myFollowingData = await myFollowingRes.json();
+        setMyFollowing(myFollowingData);
+
+        // 2️⃣ Then fetch profile friends
+        const profileRes = await fetch(`${API_URL}/profile/${userID}/friends`);
+        const profileData = await profileRes.json();
+        setProfileFriends(profileData);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setMyFollowing([]);
+        setProfileFriends([]);
+      }
+    }
+
+    fetchData();
+  }, [loggedInUserID, userID]);
 
   useEffect(() => {
-    if (!userID) return; // wait until Clerk provides userID
+    if (!userID) return;
+
+    const fetchProfileUser = async () => {
+      try {
+        const res = await axios.post(`${API_URL}/uid`, { uidArr: [userID] });
+        setProfileUser(res.data.userDatas[userID]);
+      } catch (err) {
+        console.error("Error fetching profile user:", err);
+        setProfileUser(null);
+      }
+    };
+
+    fetchProfileUser();
+  }, [userID]);
+
+  useEffect(() => {
+    if (!userID) return;
 
     const fetchGoals = async () => {
+      setLoadingGoals(true);
       try {
-        const query = {
-          sql: `SELECT gid AS id, name AS title, description , done 
-              FROM goal_table 
-              WHERE userid = '${userID}' AND done = false;`,
-        };
-
-        const res = await axios.post(API_URL, query, {
-          headers: { "Content-Type": "application/json" },
-        });
-
-        // Map DB rows into shape your UI expects
-        const goals = res.data.rows.map((g) => ({
+        const res = await axios.get(`${API_URL}/profile/goals/${userID}`);
+        const goals = res.data.map((g) => ({
           id: g.id,
           title: g.title,
           description: g.description,
@@ -120,6 +156,7 @@ export default function Profile() {
         setUserGoals(goals);
       } catch (err) {
         console.error("Error fetching goals:", err);
+        setUserGoals([]);
       } finally {
         setLoadingGoals(false);
       }
@@ -127,40 +164,20 @@ export default function Profile() {
 
     fetchGoals();
   }, [userID]);
+
   useEffect(() => {
-    if (!userID) return; // wait until we have a user
+    if (!userID) return;
 
     const fetchGlobalGoals = async () => {
+      setLoadingGlobalGoals(true);
       try {
-        const query = {
-          sql: `SELECT a.achievementid AS id,
-                     a.name AS title,
-                     a.description,
-                     a.finishnumber AS target,
-                     COALESCE(u.currentnumber, 0) AS current
-              FROM achievements_table a
-              LEFT JOIN achievementsuserid_table u
-                     ON a.achievementid = u.achievementid
-                     AND u.userid = '${userID}'
-              WHERE COALESCE(u.currentnumber, 0) < a.finishnumber;`,
-        };
-
-        const res = await axios.post(API_URL, query, {
-          headers: { "Content-Type": "application/json" },
-        });
-
-        const goals = res.data.rows.map((g) => ({
-          id: g.id,
-          title: g.title,
-          description: g.description,
-          target: Number(g.target),
-          current: Number(g.current),
-          source: "global",
-        }));
-
-        setGlobalGoals(goals);
+        const res = await axios.get(
+          `${API_URL}/profile/global-goals/${userID}`,
+        );
+        setGlobalGoals(res.data);
       } catch (err) {
         console.error("Error fetching achievements:", err);
+        setGlobalGoals([]);
       } finally {
         setLoadingGlobalGoals(false);
       }
@@ -168,31 +185,20 @@ export default function Profile() {
 
     fetchGlobalGoals();
   }, [userID]);
+
   useEffect(() => {
     if (!userID) return;
 
     const fetchCompletedHikes = async () => {
+      setLoadingHikes(true);
       try {
-        const query = {
-          sql: `SELECT * FROM completed_hike_table WHERE userid = '${userID}'`,
-        };
-        const trailsQuery = { sql: `SELECT * FROM trail_table` }; // adjust table name if different
-
-        const [hikesRes, trailsRes] = await Promise.all([
-          axios.post(API_URL, query, {
-            headers: { "Content-Type": "application/json" },
-          }),
-          axios.post(API_URL, trailsQuery, {
-            headers: { "Content-Type": "application/json" },
-          }),
-        ]);
-
-        setCompletedHikesData({
-          completed_hike_table: hikesRes.data.rows,
-          trail: trailsRes.data.rows,
-        });
+        const res = await axios.get(
+          `${API_URL}/profile/completed-hikes/${userID}`,
+        );
+        setCompletedHikesData(res.data);
       } catch (err) {
         console.error("Error fetching completed hikes:", err);
+        setCompletedHikesData(null);
       } finally {
         setLoadingHikes(false);
       }
@@ -205,36 +211,15 @@ export default function Profile() {
     if (!userID) return;
 
     const fetchCompletedGlobal = async () => {
+      setLoadingCompletedGlobal(true);
       try {
-        const query = {
-          sql: `
-          SELECT a.achievementid AS id,
-                 a.name AS title,
-                 a.description,
-                 a.finishnumber AS target,
-                 u.currentnumber AS current
-          FROM achievements_table a
-          JOIN achievementsuserid_table u
-            ON a.achievementid = u.achievementid
-          WHERE u.userid = '${userID}' AND u.currentnumber >= a.finishnumber;
-        `,
-        };
-
-        const res = await axios.post(API_URL, query, {
-          headers: { "Content-Type": "application/json" },
-        });
-
-        const goals = res.data.rows.map((g) => ({
-          id: g.id,
-          title: g.title,
-          target: Number(g.target),
-          current: Number(g.current),
-          source: "global",
-        }));
-
-        setCompletedGlobalGoals(goals);
+        const res = await axios.get(
+          `${API_URL}/profile/completed-global/${userID}`,
+        );
+        setCompletedGlobalGoals(res.data.goals);
       } catch (err) {
         console.error("Error fetching completed global goals:", err);
+        setCompletedGlobalGoals([]);
       } finally {
         setLoadingCompletedGlobal(false);
       }
@@ -242,35 +227,20 @@ export default function Profile() {
 
     fetchCompletedGlobal();
   }, [userID]);
-  // Toggle pin/unpin a hike
+
   useEffect(() => {
     if (!userID) return;
 
     const fetchCompletedPersonal = async () => {
+      setLoadingCompletedPersonal(true);
       try {
-        const query = {
-          sql: `SELECT gid AS id, name AS title, description, done 
-              FROM goal_table 
-              WHERE userid = '${userID}' AND done = true;`,
-        };
-
-        const res = await axios.post(API_URL, query, {
-          headers: { "Content-Type": "application/json" },
-        });
-
-        const goals = res.data.rows.map((g) => ({
-          id: g.id,
-          title: g.title,
-          description: g.description,
-          current: g.done ? 1 : 0, // for progress bar
-          target: 1, // always 1 for personal goals
-          done: g.done,
-          source: "personal",
-        }));
-
-        setCompletedPersonalGoals(goals);
+        const res = await axios.get(
+          `${API_URL}/profile/completed-personal/${userID}`,
+        );
+        setCompletedPersonalGoals(res.data.goals);
       } catch (err) {
         console.error("Error fetching completed personal goals:", err);
+        setCompletedPersonalGoals([]);
       } finally {
         setLoadingCompletedPersonal(false);
       }
@@ -279,6 +249,7 @@ export default function Profile() {
     fetchCompletedPersonal();
   }, [userID]);
 
+  // Toggle pin/unpin a hike
   const togglePin = (id) => {
     setHikes(hikes.map((h) => (h.id === id ? { ...h, pinned: !h.pinned } : h)));
   };
@@ -295,34 +266,22 @@ export default function Profile() {
     if (!newGoal.title || !newGoal.description) return;
 
     try {
-      const insertQuery = {
-        sql: `INSERT INTO goal_table (userid, name, description, done) 
-            VALUES ('${userID}', '${newGoal.title}', '${newGoal.description}', false)
-            RETURNING gid AS id, name AS title, description AS description, done;`,
-      };
+      const res = await axios.post(
+        `${API_URL}/profile/add-goal/${userID}`,
+        {
+          title: newGoal.title,
+          description: newGoal.description,
+        },
+        { headers: { "Content-Type": "application/json" } },
+      );
 
-      const res = await axios.post(API_URL, insertQuery, {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const savedGoal = res.data.rows[0];
-
-      const formattedGoal = {
-        id: savedGoal.id,
-        title: savedGoal.title,
-        description: savedGoal.description,
-        current: 0,
-        target: 1, // For progress bar
-        done: savedGoal.done,
-        source: "personal",
-      };
-
-      setUserGoals((prev) => [...prev, formattedGoal]);
+      setUserGoals((prev) => [...prev, res.data.goal]);
       setNewGoal({ title: "", description: "" });
     } catch (err) {
       console.error("Error adding goal:", err);
     }
   };
+
   const handleEditClick = (goal) => {
     setEditingGoalId(goal.id);
     setEditingGoal({ title: goal.title, description: goal.description });
@@ -340,18 +299,16 @@ export default function Profile() {
     }
 
     try {
-      const updateQuery = {
-        sql: `UPDATE goal_table 
-            SET name = '${editingGoal.title}', description = '${editingGoal.description}'
-            WHERE gid = '${id}' AND userid = '${userID}'
-            RETURNING gid AS id, name AS title, description AS description, done;`,
-      };
+      const res = await axios.put(
+        `${API_URL}/profile/edit-goal/${id}/${userID}`,
+        {
+          title: editingGoal.title,
+          description: editingGoal.description,
+        },
+        { headers: { "Content-Type": "application/json" } },
+      );
 
-      const res = await axios.post(API_URL, updateQuery, {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const updatedGoal = res.data.rows[0];
+      const updatedGoal = res.data.goal;
 
       setUserGoals(
         userGoals.map((g) =>
@@ -376,19 +333,18 @@ export default function Profile() {
     if (!goalToDelete) return;
 
     try {
-      const deleteQuery = {
-        sql: `DELETE FROM goal_table 
-            WHERE gid = '${goalToDelete.id}' AND userid = '${userID}'
-            RETURNING gid;`,
-      };
-
-      await axios.post(API_URL, deleteQuery, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await axios.delete(
+        `${API_URL}/profile/edit-goal/${goalToDelete.id}/${userID}`,
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
 
       // Update UI
       setUserGoals(userGoals.filter((g) => g.id !== goalToDelete.id));
       setGoalToDelete(null);
+
+      console.log("Deleted goal:", res.data.deletedGoalId);
     } catch (err) {
       console.error("Error deleting goal:", err);
     }
@@ -413,6 +369,105 @@ export default function Profile() {
       "_blank",
       `width=${window.innerWidth},height=${window.innerHeight},top=0,left=0`,
     );
+  };
+
+  const handleUnfollow = async (friendId) => {
+    try {
+      await fetch(`${API_URL}/follow/${friendId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ followerId: loggedInUserID }),
+      });
+
+      // Only update profileFriends if we're on our own profile
+      if (isOwnProfile) {
+        setProfileFriends((prev) =>
+          prev.filter((f) => Number(f.id) !== Number(friendId)),
+        );
+      }
+
+      // Update my following list
+      setMyFollowing((prev) =>
+        prev.filter((f) => Number(f.id) !== Number(friendId)),
+      );
+    } catch (err) {
+      console.error("Error unfollowing user:", err);
+    }
+  };
+
+  console.log("profile user id:", userID);
+  const isFollowingProfileUser = myFollowing.some(
+    (f) => Number(f.id) === Number(userID),
+  );
+
+  const handleFollowToggleProfile = async (profileId) => {
+    const currentlyFollowing = myFollowing.some(
+      (f) => Number(f.id) === Number(profileId),
+    );
+
+    try {
+      if (currentlyFollowing) {
+        // Unfollow
+        await fetch(`${API_URL}/follow/${profileId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ followerId: loggedInUserID }),
+        });
+
+        // Remove from myFollowing
+        setMyFollowing((prev) =>
+          prev.filter((f) => Number(f.id) !== Number(profileId)),
+        );
+
+        // Don't modify profileFriends here - it should only show who the profile owner follows
+      } else {
+        // Follow
+        await fetch(`${API_URL}/follow/${profileId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ followerId: loggedInUserID }),
+        });
+
+        // Add to myFollowing - use existing profileUser data
+        const newFollow = {
+          id: Number(profileId), // Ensure consistent number type
+          username: profileUser?.username || "Unknown",
+          imageUrl: profileUser?.imageUrl || "",
+        };
+
+        setMyFollowing((prev) => [...prev, newFollow]);
+
+        // Don't modify profileFriends here - it should only show who the profile owner follows
+      }
+    } catch (err) {
+      console.error("Error toggling follow:", err);
+    }
+  };
+
+  const handleMarkDone = async (goalId) => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/profile/mark-done/${goalId}/${userID}`,
+        {},
+        { headers: { "Content-Type": "application/json" } },
+      );
+
+      const updatedGoal = res.data.goal;
+
+      // Remove from active goals
+      setUserGoals((prev) => prev.filter((g) => g.id !== goalId));
+
+      // Add to completed goals
+      setCompletedPersonalGoals((prev) => [
+        ...prev,
+        { ...updatedGoal, source: "personal" },
+      ]);
+    } catch (err) {
+      console.error("Error marking goal as done:", err);
+    }
   };
 
   // Render functions
@@ -469,43 +524,51 @@ export default function Profile() {
         )}
         <menu className="flex space-x-2">
           {editable && editingGoalId === goal.id && (
-            <button
+            <span
               onClick={() => handleSaveEdit(goal.id)}
-              className="text-green-500 hover:underline"
+              className="cursor-pointer rounded-full bg-blue-100 px-3 py-1 font-semibold text-blue-800 transition hover:bg-blue-200"
             >
               Save
-            </button>
+            </span>
           )}
           {editable && editingGoalId !== goal.id && (
-            <button
+            <span
               onClick={() => handleEditClick(goal)}
-              className="text-blue-500 hover:underline"
+              className="cursor-pointer rounded-full bg-blue-100 px-3 py-1 font-semibold text-blue-800 transition hover:bg-blue-200"
             >
               Edit
-            </button>
+            </span>
           )}
           {editable && (
-            <button
+            <span
               onClick={() => confirmDelete(goal)}
-              className="text-red-500 hover:underline"
+              className="cursor-pointer rounded-full bg-red-100 px-3 py-1 font-semibold text-red-800 transition hover:bg-red-200"
             >
               Delete
-            </button>
+            </span>
+          )}
+          {editable && !goal.done && (
+            <span
+              onClick={() => handleMarkDone(goal.id)}
+              className="cursor-pointer rounded-full bg-green-100 px-3 py-1 font-semibold text-green-800 transition hover:bg-green-200"
+            >
+              Mark Done
+            </span>
           )}
 
           {showShare && (
             <>
-              <button
+              <span
                 onClick={() => {
                   navigator.clipboard.writeText(
                     `I completed the goal "${goal.title}" (${goal.target} done)!`,
                   );
                   alert("Copied to clipboard!");
                 }}
-                className="text-sm text-gray-500 underline hover:text-gray-700"
+                className="cursor-pointer rounded-full bg-blue-50 px-3 py-1 font-semibold text-blue-800 transition hover:bg-blue-200"
               >
                 Copy
-              </button>
+              </span>
               <button
                 onClick={() => handleShare(goal, "twitter")}
                 className="text-blue-400 hover:text-blue-600"
@@ -569,32 +632,64 @@ export default function Profile() {
       <section className="flex items-center space-x-4">
         <div className="relative">
           <img
-            src={friend.avatar}
-            alt={friend.name}
+            src={friend.imageUrl || "https://i.pravatar.cc/50?img=1"}
+            alt={`@${friend.username}`}
             className="h-12 w-12 rounded-full"
           />
-          {friend.online && (
-            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"></span>
-          )}
         </div>
         <section>
-          <h3 className="font-semibold text-gray-800">{friend.name}</h3>
-          <p className="text-sm text-gray-500">{friend.status}</p>
+          <h3 className="font-semibold text-gray-800">{friend.username}</h3>
         </section>
       </section>
+
       <menu className="flex space-x-2">
-        <button className="text-blue-500 hover:underline">Message</button>
-        <button
-          className="text-red-500 hover:underline"
-          onClick={() => setFriends(friends.filter((f) => f.id !== friend.id))}
-        >
-          Remove
-        </button>
+        <ViewProfileButton userID={friend.id} />
+        {isOwnProfile && (
+          <button
+            onClick={() => handleUnfollow(friend.id)}
+            className="rounded-lg bg-gray-400 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-500"
+          >
+            Unfollow
+          </button>
+        )}
       </menu>
     </li>
   );
 
   const completedGoals = [...completedGlobalGoals, ...completedPersonalGoals];
+  const tabs = [
+    // Only show Achievements & Goals if viewing your own profile
+    ...(isOwnProfile
+      ? [
+          {
+            name: "Achievements",
+            key: "global",
+            icon: <FaTrophy className="mr-2 inline" />,
+          },
+          {
+            name: "Goals",
+            key: "personal",
+            icon: <FaBullseye className="mr-2 inline" />,
+          },
+        ]
+      : []),
+    // Always show these tabs
+    {
+      name: "Completed",
+      key: "completed",
+      icon: <FaCheckCircle className="mr-2 inline" />,
+    },
+    {
+      name: "Statistics",
+      key: "stats",
+      icon: <FaChartBar className="mr-2 inline" />,
+    },
+    {
+      name: "Following",
+      key: "friends",
+      icon: <FaUserFriends className="mr-2 inline" />,
+    },
+  ];
 
   return (
     <main className="p-6 pt-20">
@@ -602,19 +697,34 @@ export default function Profile() {
         {/* Profile Header */}
         <section className="mb-6 flex items-center space-x-4">
           <img
-            src={avatarUrl} // fallback
-            alt={displayName || "User Avatar"}
-            className="h-20 w-20 rounded-full shadow-md"
+            src={profileUser?.imageUrl || "fallback-avatar.png"}
+            alt={profileUser?.username || "User Avatar"}
+            className="h-20 w-20 rounded-full"
           />
           <section>
             <h1 className="text-2xl font-bold text-gray-800">
-              {displayName || "Some Person"}
+              {profileUser?.username || "Some Person"}
             </h1>
             <p className="text-gray-600">Avid hiker & goal achiever</p>
             <p className="mt-1 text-sm text-gray-500">
               {userGoals.filter((g) => g.current < g.target).length} personal
-              goals • {hikes.length} hikes pinned • {friends.length} following
+              goals • {hikes.length} hikes pinned • {profileFriends.length}{" "}
+              following
             </p>
+
+            {/* Follow/Unfollow button */}
+            {!isOwnProfile && profileUser && (
+              <button
+                onClick={() => handleFollowToggleProfile(userID)}
+                className={`mt-2 rounded px-4 py-2 font-medium text-white transition ${
+                  isFollowingProfileUser
+                    ? "bg-gray-400 hover:bg-gray-500"
+                    : "bg-green-700 hover:bg-green-500"
+                }`}
+              >
+                {isFollowingProfileUser ? "Unfollow" : "Follow"}
+              </button>
+            )}
           </section>
         </section>
 
@@ -650,45 +760,14 @@ export default function Profile() {
         </section>
 
         {/* Tabs */}
-        {/* Tabs */}
         <nav className="flex w-full border-b-2 border-gray-200">
-          {[
-            {
-              name: "Achievements",
-              key: "global",
-              icon: <FaTrophy className="mr-2 inline" />,
-            },
-            {
-              name: "Goals",
-              key: "personal",
-              icon: <FaBullseye className="mr-2 inline" />,
-            },
-            {
-              name: "Completed",
-              key: "completed",
-              icon: <FaCheckCircle className="mr-2 inline" />,
-            },
-            {
-              name: "Statistics",
-              key: "stats",
-              icon: <FaChartBar className="mr-2 inline" />,
-            },
-            {
-              name: "Following",
-              key: "friends",
-              icon: <FaUserFriends className="mr-2 inline" />,
-            },
-          ].map((tab) => {
+          {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 pb-2 text-center font-semibold transition-colors ${
-                  isActive
-                    ? "border-b-2 border-green-700 text-green-700"
-                    : "text-gray-500 hover:text-green-500"
-                }`}
+                className={`flex-1 pb-2 text-center font-semibold transition-colors ${isActive ? "border-b-2 border-green-700 text-green-700" : "text-gray-500 hover:text-green-500"}`}
               >
                 {tab.icon}
                 {tab.name}
@@ -698,7 +777,7 @@ export default function Profile() {
         </nav>
 
         {/* Tab Content */}
-        {activeTab === "global" && (
+        {isOwnProfile && activeTab === "global" && (
           <section className="mt-4 space-y-4">
             <ul className="space-y-3">
               {loadingGlobalGoals ? (
@@ -716,7 +795,7 @@ export default function Profile() {
           </section>
         )}
 
-        {activeTab === "personal" && (
+        {isOwnProfile && activeTab === "personal" && (
           <section className="mt-4 space-y-4">
             <section className="space-y-4 rounded-lg bg-white p-4 shadow-md">
               <h2 className="text-2xl font-semibold text-gray-800">
@@ -795,7 +874,7 @@ export default function Profile() {
             ) : completedGoals.length ? (
               <ul className="space-y-3">
                 {completedGoals.map((goal) =>
-                  renderGoalItem(goal, false, true),
+                  renderGoalItem(goal, false, isOwnProfile),
                 )}
               </ul>
             ) : (
@@ -808,14 +887,13 @@ export default function Profile() {
 
         {activeTab === "friends" && (
           <section className="mt-4 space-y-4">
-            {friends.length ? (
+            {profileFriends.length ? (
               <ul className="space-y-3">
-                {friends.map((friend) => renderFriendItem(friend))}
+                {profileFriends.map((friend) => renderFriendItem(friend))}
               </ul>
             ) : (
               <p className="text-gray-600">
-                You haven't followed anyone yet. Start following to see their
-                updates!.
+                This user isn't following anyone yet.
               </p>
             )}
           </section>
