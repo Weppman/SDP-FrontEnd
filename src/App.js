@@ -1,24 +1,25 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./home/home.js";
-import PlanHike from "./planHike.js"; 
+import PlanHike from "./planHike.js";
 import Logbook from "./logbook.js";
 import Profile from "./profile/profile.js";
 import Toolbar from "./toolbar/toolbar.js";
-
+import SearchUsersUI from "./search/search.js";
 
 function App() {
   return (
     <Router>
-      <div className="">
-      </div>
+      <div className=""></div>
       <Toolbar />
       <section className="p-4">
         <Routes>
-          <Route path="/" element={<Home/>} />
+          <Route path="/" element={<Home />} />
           <Route path="/planHike" element={<PlanHike />} />
           <Route path="/logbook" element={<Logbook />} />
-          <Route path="/profile" element={<Profile />} />  
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:userID" element={<Profile />} />
+          <Route path="/search" element={<SearchUsersUI />} />
         </Routes>
       </section>
     </Router>

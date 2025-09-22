@@ -4,34 +4,39 @@ import AuthPanel from "../authHandling/authPanel"; // adjust path if needed
 
 export default function Toolbar() {
   return (
-    <section className="bg-gray-50 fixed top-0 left-0 right-0 z-50 shadow-md border-b border-green-300">
-      <section className="mx-auto max-w-6xl flex items-center justify-between px-4 py-3">
-
+    <section className="fixed left-0 right-0 top-0 z-50 border-b border-green-300 bg-gray-50 shadow-md">
+      <section className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* Left links */}
         <section className="flex space-x-3">
           <Link
             to="/"
-            className="flex items-center justify-center border-2 border-green-300 bg-white px-3 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
+            className="flex items-center justify-center rounded-xl border-2 border-green-300 bg-white px-3 py-2 font-semibold text-green-800 transition hover:bg-green-200"
           >
             Home
           </Link>
           <Link
             to="/planHike"
-            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
+            className="rounded-xl border-2 border-green-300 bg-white px-4 py-2 font-semibold text-green-800 transition hover:bg-green-200"
           >
             Plan Hike
           </Link>
           <Link
             to="/logbook"
-            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
+            className="rounded-xl border-2 border-green-300 bg-white px-4 py-2 font-semibold text-green-800 transition hover:bg-green-200"
           >
             Logbook
           </Link>
           <Link
             to="/profile"
-            className="border-2 border-green-300 bg-white px-4 py-2 rounded-xl font-semibold text-green-800 hover:bg-green-200 transition"
+            className="rounded-xl border-2 border-green-300 bg-white px-4 py-2 font-semibold text-green-800 transition hover:bg-green-200"
           >
             Profile
+          </Link>
+          <Link
+            to="/search"
+            className="rounded-xl border-2 border-green-300 bg-white px-4 py-2 font-semibold text-green-800 transition hover:bg-green-200"
+          >
+            Search
           </Link>
         </section>
 
@@ -39,7 +44,6 @@ export default function Toolbar() {
         <section className="flex items-center">
           <AuthPanel />
         </section>
-
       </section>
     </section>
   );
