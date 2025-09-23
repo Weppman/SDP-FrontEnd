@@ -6,20 +6,58 @@ import Logbook from "./logbook.js";
 import Profile from "./profile/profile.js";
 import Toolbar from "./toolbar/toolbar.js";
 import SearchUsersUI from "./search/search.js";
+import ProtectedRoute from "./components/ProtectedRoute.js"; // ✅ make sure this is default export
 
 function App() {
   return (
     <Router>
-      <div className=""></div>
       <Toolbar />
       <section className="p-4">
         <Routes>
+          {/* Public route */}
           <Route path="/" element={<Home />} />
-          <Route path="/planHike" element={<PlanHike />} />
-          <Route path="/logbook" element={<Logbook />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:userID" element={<Profile />} />
-          <Route path="/search" element={<SearchUsersUI />} />
+
+          {/* Protected routes */}
+          <Route
+            path="/planHike"
+            element={
+              <ProtectedRoute>
+                <PlanHike />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/logbook"
+            element={
+              <ProtectedRoute>
+                <Logbook />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/:userID"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute>
+                <SearchUsersUI />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </section>
     </Router>

@@ -13,14 +13,23 @@ export default function PlanHike() {
   const [selectedHike, setSelectedHike] = useState(null);
   const [plannedDate, setPlannedDate] = useState("");
   const [friends, setFriends] = useState([]);
+  
   const API_URL = "https://sdp-backend-production.up.railway.app";
+  const apiKey = process.env.REACT_APP_API_KEY;
+
+  // Axios instance with x-api-key header
+  const apiClient = axios.create({
+    baseURL: API_URL,
+    withCredentials: true,
+    headers: { "x-api-key": apiKey },
+  });
 
   useEffect(() => { fetchHikes(); }, []);
 
   const fetchHikes = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/trails`);
+      const res = await apiClient.get("/trails");
       setHikes(res.data.trails);
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -78,16 +87,14 @@ export default function PlanHike() {
       alert("Please select a valid future date for your hike.");
       return;
     }
-
     try {
       const invitedIds = friends.filter(f => f.invited).map(f => f.id);
-      const res = await axios.post(`${API_URL}/plan-hike`, {
+      const res = await apiClient.post("/plan-hike", {
         trailId: selectedHike.trailid,
         plannedAt: plannedDate,
         userId: userID,
         invitedFriends: invitedIds
       });
-
       if (res.data.success) {
         const msg = invitedIds.length > 0
           ? `Planned hike "${selectedHike.name}" with friends: ${invitedIds.join(", ")}`
@@ -98,7 +105,6 @@ export default function PlanHike() {
       console.error(err);
       alert("Failed to plan hike. Please try again.");
     }
-
     closeModals();
   };
 
@@ -108,7 +114,7 @@ export default function PlanHike() {
 
   const fetchFriends = async () => {
     try {
-      const res = await axios.get(`${API_URL}/friends/${userID}`);
+      const res = await apiClient.get(`/friends/${userID}`);
       setFriends(res.data.friends.map(f => ({ ...f, invited: false })));
     } catch (err) {
       console.error(err);

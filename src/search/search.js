@@ -11,20 +11,23 @@ export default function SearchUsersUI() {
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
   const API_URL = "https://sdp-backend-production.up.railway.app";
+  const apiKey = process.env.REACT_APP_API_KEY;
 
   // Fetch friends of current user
   const fetchFriends = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/profile/${userID}/friends`, {
         credentials: "include",
+        headers: { "x-api-key": apiKey },
       });
       const data = await res.json();
       setFriends(data.map((user) => Number(user.id)));
     } catch (err) {
       console.error("Error fetching friends:", err);
     }
-  }, [userID, API_URL]);
+  }, [userID, API_URL, apiKey]);
 
   // Fetch suggested/random users
   const fetchSuggestedUsers = useCallback(async () => {
@@ -33,31 +36,40 @@ export default function SearchUsersUI() {
         `${API_URL}/users/random?limit=9&currentUserId=${userID}`,
         {
           credentials: "include",
-        },
+          headers: { "x-api-key": apiKey },
+        }
       );
       const data = await res.json();
       setSuggestedUsers(data.users || []);
     } catch (err) {
       console.error("Error fetching suggested users:", err);
     }
-  }, [userID, API_URL]);
+  }, [userID, API_URL, apiKey]);
 
+  // Refresh suggested users with loading state
   const refreshSuggestedUsers = async () => {
     setRefreshing(true);
-    await fetchSuggestedUsers(); // already includes userID
-    setRefreshing(false);
+    try {
+      await fetchSuggestedUsers();
+    } finally {
+      setRefreshing(false);
+    }
   };
+
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);
     try {
       const res = await fetch(
         `${API_URL}/users/search?username=${encodeURIComponent(query)}`,
-        { credentials: "include" },
+        {
+          credentials: "include",
+          headers: { "x-api-key": apiKey },
+        }
       );
       const data = await res.json();
       const filteredResults = (data.users || []).filter(
-        (user) => user.id !== userID,
+        (user) => user.id !== userID
       );
       setResults(filteredResults);
     } catch (err) {
@@ -76,9 +88,10 @@ export default function SearchUsersUI() {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
+            "x-api-key": apiKey,
           },
           credentials: "include",
-          body: JSON.stringify({ followerId: userID }), // important if backend needs it
+          body: JSON.stringify({ followerId: userID }),
         });
         setFriends((prev) => prev.filter((id) => id !== Number(userId)));
       } else {
@@ -87,6 +100,7 @@ export default function SearchUsersUI() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "x-api-key": apiKey,
           },
           credentials: "include",
           body: JSON.stringify({ followerId: userID }),
@@ -97,28 +111,29 @@ export default function SearchUsersUI() {
       console.error("Error toggling follow:", err);
     }
   };
-  const renderAvatar = (user) =>
-    user.imageUrl ? (
-      <img
-        src={user.imageUrl}
-        alt={user.username}
-        className="h-12 w-12 rounded-full object-cover shadow-sm"
-      />
-    ) : (
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-lg font-semibold text-gray-500">
-        {user.username[0]?.toUpperCase()}
-      </div>
-    );
 
   const isFollowing = (userId) => friends.includes(Number(userId));
 
-  // Initial fetch
+  // Fetch friends & suggested users initially
   useEffect(() => {
     if (userID) {
       fetchSuggestedUsers();
       fetchFriends();
     }
   }, [userID, fetchSuggestedUsers, fetchFriends]);
+
+  // Simple avatar placeholder
+  const renderAvatar = (user) => (
+    <div className="h-16 w-16 overflow-hidden rounded-full bg-gray-200">
+      {user.avatar ? (
+        <img src={user.avatar} alt={user.username} className="h-full w-full object-cover" />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-gray-500">
+          {user.username[0].toUpperCase()}
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 pb-12 pt-12 sm:pt-16">
