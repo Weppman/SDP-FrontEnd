@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useUserContext } from "./context/userContext.js";
 
@@ -7,90 +7,108 @@ export default function Logbook() {
   const [expandedHike, setExpandedHike] = useState(null);
   const [completedHikes, setCompletedHikes] = useState([]);
   const [upcomingHikes, setUpcomingHikes] = useState([]);
+  const [pendingHikes, setPendingHikes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({ name: "", date: "" });
   const [upcomingFilters, setUpcomingFilters] = useState({ name: "", date: "" });
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTimespan, setEditTimespan] = useState("");
   const [selectedHikeId, setSelectedHikeId] = useState(null);
-  const [showStartModal, setShowStartModal] = useState(false);
-  const [startPlannedAt, setStartPlannedAt] = useState("");
-  const [selectedUpcomingHikeId, setSelectedUpcomingHikeId] = useState(null);
+  const [startingHikeId, setStartingHikeId] = useState(null);
 
-  const API_URL = "https://sdp-backend-production.up.railway.app/query";
+  const API_URL = "https://sdp-backend-production.up.railway.app";
+  const apiKey = process.env.REACT_APP_API_KEY;
 
-  const fetchCompletedHikes = async (id) => {
-    if (!id) return;
+  // Axios instance with x-api-key header
+  const apiClient = axios.create({
+    baseURL: API_URL,
+    withCredentials: true,
+    headers: { "x-api-key": apiKey },
+  });
+
+  const fetchUserData = async (uidArr) => {
+    if (!uidArr || uidArr.length === 0) return {};
+    try {
+      const res = await apiClient.post("/uid", { uidArr });
+      return res.data.userDatas || {};
+    } catch (err) {
+      console.error("Failed to fetch user data:", err);
+      return {};
+    }
+  };
+
+  const fetchCompletedHikes = useCallback(async () => {
+    if (!userID) return;
     setLoading(true);
     try {
-      const query = {
-        sql: `
-          SELECT ch.completedhikeid, ch.userid, ch.trailid, ch.date, ch.timespan,
-                 t.name, t.location, t.difficulty, t.duration, t.description
-          FROM completed_hike_table ch
-          JOIN trail_table t ON ch.trailid = t.trailid
-          WHERE ch.userid = ${id}
-          ORDER BY ch.completedhikeid ASC
-        `
-      };
-      const res = await axios.post(API_URL, query, { headers: { "Content-Type": "application/json" } });
-      setCompletedHikes(res.data.rows);
+      const res = await apiClient.get(`/completed-hikes/${userID}`);
+      const rows = res.data.rows || [];
+      const userDatas = await fetchUserData(rows.map(h => h.userid));
+      setCompletedHikes(
+        rows.map(h => ({ ...h, plannerName: userDatas[h.userid]?.username || `User ${h.userid}` }))
+      );
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
-  };
-
-  const fetchUpcomingHikes = async (id) => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const query = {
-        sql: `
-          SELECT p.plannerid, p.trailid, p.planned_at,
-                 t.name, t.location, t.difficulty, t.duration, t.description
-          FROM planner_table p
-          JOIN hike h ON h.plannerid = p.plannerid
-          JOIN trail_table t ON t.trailid = p.trailid
-          WHERE h.userid = ${id} AND h.iscoming = true
-          ORDER BY p.planned_at ASC
-        `
-      };
-      const res = await axios.post(API_URL, query, { headers: { "Content-Type": "application/json" } });
-      setUpcomingHikes(res.data.rows);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchCompletedHikes(userID);
-    fetchUpcomingHikes(userID);
   }, [userID]);
 
-  const filteredCompletedHikes = completedHikes.filter(hike =>
-    (hike.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
-    (hike.date ? new Date(hike.date).toLocaleDateString() : "").includes(filters.date)
-  );
+  const fetchUpcomingHikes = useCallback(async () => {
+    if (!userID) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.get(`/upcoming-hikes/${userID}`);
+      const rows = res.data.rows || [];
+      const userDatas = await fetchUserData(rows.map(h => h.plannerid));
+      setUpcomingHikes(
+        rows.map(h => ({
+          ...h,
+          plannerName: userDatas[h.plannerid]?.username || `User ${h.plannerid}`,
+          has_started: h.has_started === true || h.has_started === 'true' || h.has_started === 1 || h.has_started === 't',
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  }, [userID]);
 
-  const filteredUpcomingHikes = upcomingHikes.filter(hike =>
-    (hike.name || "").toLowerCase().includes(upcomingFilters.name.toLowerCase()) &&
-    (hike.planned_at ? new Date(hike.planned_at).toLocaleDateString() : "").includes(upcomingFilters.date)
-  );
+  const fetchPendingHikes = useCallback(async () => {
+    if (!userID) return;
+    try {
+      const res = await apiClient.get(`/pending-hikes/${userID}`);
+      const hikes = res.data.pendingHikes || [];
+      const userDatas = await fetchUserData(hikes.map(h => h.madeby));
+      setPendingHikes(
+        hikes.map(h => ({
+          ...h,
+          inviterName: userDatas[h.madeby]?.username || `User ${h.madeby}`
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+      setPendingHikes([]);
+    }
+  }, [userID]);
 
-  const formatTimespan = (timespan) => {
-    if (!timespan) return "Unknown";
-    if (typeof timespan === "object" && timespan !== null) {
-      const h = String(timespan.hours || 0).padStart(2, "0");
-      const m = String(timespan.minutes || 0).padStart(2, "0");
-      const s = String(Math.floor(timespan.seconds || 0)).padStart(2, "0");
+  useEffect(() => {
+    if (userID) {
+      fetchCompletedHikes();
+      fetchUpcomingHikes();
+      fetchPendingHikes();
+    }
+  }, [userID, fetchCompletedHikes, fetchUpcomingHikes, fetchPendingHikes]);
+
+  const formatTimespan = (ts) => {
+    if (!ts) return "Unknown";
+    if (typeof ts === "object" && ts !== null) {
+      const h = String(ts.hours || 0).padStart(2, "0");
+      const m = String(ts.minutes || 0).padStart(2, "0");
+      const s = String(Math.floor(ts.seconds || 0)).padStart(2, "0");
       return `${h}:${m}:${s}`;
     }
-    const tsString = timespan.toString();
-    const match = tsString.match(/(\d+):(\d+):(\d+)/);
-    if (match) return `${match[1].padStart(2, "0")}:${match[2].padStart(2, "0")}:${match[3].padStart(2, "0")}`;
-    return tsString;
+    const match = ts.toString().match(/(\d+):(\d+):(\d+)/);
+    return match ? `${match[1].padStart(2,"0")}:${match[2].padStart(2,"0")}:${match[3].padStart(2,"0")}` : ts;
   };
 
   const openEditModal = (hike) => {
@@ -98,62 +116,66 @@ export default function Logbook() {
     setEditTimespan(formatTimespan(hike.timespan) || "");
     setShowEditModal(true);
   };
-
   const closeEditModal = () => {
     setShowEditModal(false);
     setSelectedHikeId(null);
     setEditTimespan("");
   };
-
   const handleUpdateTimespan = async () => {
     if (!selectedHikeId || !editTimespan) return;
     try {
-      await axios.post(API_URL, {
-        sql: `
-          UPDATE completed_hike_table
-          SET timespan = '${editTimespan}'::interval
-          WHERE completedhikeid = ${selectedHikeId}
-        `
-      }, { headers: { "Content-Type": "application/json" } });
-      alert("Timespan updated successfully.");
+      await apiClient.post("/update-timespan", { completedHikeId: selectedHikeId, timespan: editTimespan });
       closeEditModal();
-      fetchCompletedHikes(userID);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update timespan.");
-    }
+      fetchCompletedHikes();
+    } catch (err) { console.error(err); }
   };
 
-  const openStartModal = (hike) => {
-    setSelectedUpcomingHikeId(hike.plannerid);
-    setStartPlannedAt(hike.planned_at ? new Date(hike.planned_at).toISOString().slice(11,16) : "");
-    setShowStartModal(true);
-  };
-
-  const closeStartModal = () => {
-    setShowStartModal(false);
-    setSelectedUpcomingHikeId(null);
-    setStartPlannedAt("");
-  };
-
-  const handleStartHike = async () => {
-    if (!selectedUpcomingHikeId || !startPlannedAt) return;
+  const handleStartHike = async (plannerId) => {
+    if (!plannerId || !userID || startingHikeId === plannerId) return;
+    setStartingHikeId(plannerId);
     try {
-      await axios.post(API_URL, {
-        sql: `
-          UPDATE planner_table
-          SET planned_at = DATE(planned_at) + TIME '${startPlannedAt}:00'
-          WHERE plannerid = ${selectedUpcomingHikeId}
-        `
-      }, { headers: { "Content-Type": "application/json" }});
-      alert("Planned time updated successfully.");
-      closeStartModal();
-      fetchUpcomingHikes(userID);
+      const res = await apiClient.post("/start-hike", { plannerId, userId: userID });
+      if (!res.data.success) throw new Error(res.data.message || "Failed to start hike");
+      setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: true, planned_at: res.data.planned_at } : h));
     } catch (err) {
       console.error(err);
-      alert("Failed to update planned time.");
+      setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: false } : h));
+    } finally {
+      setStartingHikeId(null);
     }
   };
+
+  const handleStopHike = async (plannerId) => {
+    if (!plannerId || !userID) return;
+    try {
+      await apiClient.post("/stop-hike", { plannerId, userId: userID });
+      setUpcomingHikes(prev => prev.filter(h => h.plannerid !== plannerId));
+      fetchCompletedHikes();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleAcceptInvite = async (hikeId) => {
+    try { 
+      await apiClient.post("/hike-accept", { hikeId });
+      fetchPendingHikes();
+      fetchUpcomingHikes();
+    } catch (err) { console.error(err); }
+  };
+  const handleDeclineInvite = async (hikeId) => {
+    try { 
+      await apiClient.post("/hike-decline", { hikeId });
+      fetchPendingHikes();
+    } catch (err) { console.error(err); }
+  };
+
+  const filteredCompletedHikes = completedHikes.filter(h =>
+    (h.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
+    (h.date ? new Date(h.date).toLocaleDateString() : "").includes(filters.date)
+  );
+  const filteredUpcomingHikes = upcomingHikes.filter(h =>
+    (h.name || "").toLowerCase().includes(upcomingFilters.name.toLowerCase()) &&
+    (h.planned_at ? new Date(h.planned_at).toLocaleDateString() : "").includes(upcomingFilters.date)
+  );
 
   if (!userID) return <main className="bg-gray-50 min-h-screen pt-20 p-6 flex flex-col items-center"><p className="text-gray-500">Loading user information...</p></main>;
 
@@ -162,68 +184,119 @@ export default function Logbook() {
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Logbook</h1>
       </header>
+
       <section className="flex gap-6 w-full max-w-6xl">
+        {/* Filters */}
         <aside className="w-1/4 rounded-lg bg-white shadow-md p-4 flex flex-col gap-6">
-          <section>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Hike Filters</h2>
-            <section className="space-y-3">
-              {Object.keys(upcomingFilters).map(key => (
-                <section key={key} className="flex flex-col">
-                  <label htmlFor={`up-${key}`} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
-                  <input id={`up-${key}`} type="text" value={upcomingFilters[key]} onChange={e => setUpcomingFilters({ ...upcomingFilters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </section>
-              ))}
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Hike Filters</h2>
+          {Object.keys(upcomingFilters).map(key => (
+            <section key={key} className="flex flex-col mb-2">
+              <label htmlFor={`up-${key}`} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
+              <input id={`up-${key}`} type="text" value={upcomingFilters[key]} onChange={e => setUpcomingFilters({ ...upcomingFilters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
             </section>
-            <h2 className="text-lg font-semibold text-gray-800 mt-6 mb-4">Completed Hike Filters</h2>
-            <section className="space-y-3">
-              {Object.keys(filters).map(key => (
-                <section key={key} className="flex flex-col">
-                  <label htmlFor={key} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
-                  <input id={key} type="text" value={filters[key]} onChange={e => setFilters({ ...filters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
-                </section>
-              ))}
+          ))}
+
+          <h2 className="text-lg font-semibold text-gray-800 mt-6 mb-4">Completed Hike Filters</h2>
+          {Object.keys(filters).map(key => (
+            <section key={key} className="flex flex-col mb-2">
+              <label htmlFor={key} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
+              <input id={key} type="text" value={filters[key]} onChange={e => setFilters({ ...filters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
             </section>
-          </section>
+          ))}
         </aside>
-        <section className="flex-1 rounded-lg bg-white shadow-md p-4 h-[800px] flex flex-col">
-          <section className="flex-1 border-b border-gray-300 overflow-y-auto p-2">
-            <h2 className="sticky top-0 bg-white z-10 text-xl font-semibold text-gray-800 mb-4 p-2">Upcoming Hikes</h2>
+
+        {/* Hikes Lists */}
+        <section className="flex-1 rounded-lg bg-white shadow-md p-4 flex flex-col h-[800px]">
+          <h2 className="sticky top-0 bg-white z-10 text-xl font-semibold text-gray-800 mb-4 p-2">Upcoming Hikes</h2>
+          {/* Pending Invites */}
+          {pendingHikes.length > 0 && (
+            <section className="bg-yellow-50 p-3 rounded mb-4 overflow-y-auto max-h-40">
+              {pendingHikes.map(hike => (
+                <article key={hike.hikeid} className="flex flex-col mb-2">
+                  <button
+                    onClick={() => setExpandedHike(expandedHike === hike.hikeid ? null : hike.hikeid)}
+                    className={`p-3 text-left flex justify-between items-center transition-colors ${expandedHike === hike.hikeid ? "bg-yellow-100 text-yellow-800" : "hover:bg-yellow-200 text-gray-800"}`}
+                  >
+                    <p><strong>Invite from {hike.inviterName}:</strong> {hike.name || `Trail #${hike.trailid}`}</p>
+                    <p aria-hidden="true">{expandedHike === hike.hikeid ? "▲" : "▼"}</p>
+                  </button>
+                  {expandedHike === hike.hikeid && (
+                    <section className="p-3 bg-yellow-50 text-gray-700 text-sm flex flex-col">
+                      <p><strong>Trail Name:</strong> {hike.name}</p>
+                      <p><strong>Location:</strong> {hike.location}</p>
+                      <p><strong>Difficulty:</strong> {hike.difficulty}</p>
+                      <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
+                      <p><strong>Description:</strong> {hike.description}</p>
+                      <p><strong>Planned At:</strong> {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}</p>
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => handleAcceptInvite(hike.hikeid)} className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">Accept</button>
+                        <button onClick={() => handleDeclineInvite(hike.hikeid)} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">Decline</button>
+                      </div>
+                    </section>
+                  )}
+                </article>
+              ))}
+            </section>
+          )}
+
+          {/* Upcoming Hikes */}
+          <section className="flex-1 overflow-y-auto mb-4">
             {loading ? <p className="text-gray-500">Loading...</p> :
-              (filteredUpcomingHikes.length > 0 ? filteredUpcomingHikes.map(hike => (
+              filteredUpcomingHikes.length > 0 ? filteredUpcomingHikes.map(hike => (
                 <article key={hike.plannerid} className="flex flex-col">
-                  <button onClick={() => setExpandedHike(expandedHike === hike.plannerid ? null : hike.plannerid)} className={`p-3 text-left flex justify-between items-center transition-colors ${expandedHike === hike.plannerid ? "bg-green-100 text-green-800" : "hover:bg-gray-50 text-gray-800"}`}>
+                  <button 
+                    onClick={() => setExpandedHike(expandedHike === hike.plannerid ? null : hike.plannerid)} 
+                    className={`p-3 text-left flex justify-between items-center transition-colors ${expandedHike === hike.plannerid ? "bg-green-100 text-green-800" : "hover:bg-gray-50 text-gray-800"}`}
+                  >
                     <p className="font-medium">{hike.name || `Trail #${hike.trailid}`}</p>
                     <p aria-hidden="true" className="ml-2 text-gray-500">{expandedHike === hike.plannerid ? "▲" : "▼"}</p>
                   </button>
                   {expandedHike === hike.plannerid && (
-                    <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col max-h-[200px] overflow-y-auto relative">
+                    <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col relative">
                       <p><strong>Trail Name:</strong> {hike.name}</p>
                       <p><strong>Location:</strong> {hike.location}</p>
                       <p><strong>Difficulty:</strong> {hike.difficulty}</p>
-                      <p><strong>Duration:</strong> {hike.duration || "Unknown"}</p>
+                      <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
                       <p><strong>Description:</strong> {hike.description}</p>
                       <p><strong>Planned At:</strong> {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}</p>
-                      <button onClick={() => openStartModal(hike)} className="mt-2 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors absolute bottom-2 right-2">Start</button>
+
+                      {/* Start / Stop button */}
+                      {hike.has_started
+                        ? <button
+                            onClick={() => handleStopHike(hike.plannerid)}
+                            className="mt-2 self-end px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Stop
+                          </button>
+                        : <button
+                            disabled={startingHikeId === hike.plannerid || hike.has_started}
+                            onClick={() => handleStartHike(hike.plannerid)}
+                            className="mt-2 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                          >
+                            Start
+                          </button>
+                      }
                     </section>
                   )}
                 </article>
-              )) : <p className="p-3 text-gray-500">No upcoming hikes found</p>)}
+              )) : <p className="p-3 text-gray-500">No upcoming hikes found</p>}
           </section>
+          {/* Completed Hikes */}
           <section className="flex-1 overflow-y-auto p-2">
             <h2 className="sticky top-0 bg-white z-10 text-xl font-semibold text-gray-800 mb-4 p-2">Completed Hikes</h2>
             {loading ? <p className="text-gray-500">Loading...</p> :
-              (filteredCompletedHikes.length > 0 ? filteredCompletedHikes.map(hike => (
+              filteredCompletedHikes.length > 0 ? filteredCompletedHikes.map(hike => (
                 <article key={hike.completedhikeid} className="flex flex-col">
                   <button onClick={() => setExpandedHike(expandedHike === hike.completedhikeid ? null : hike.completedhikeid)} className={`p-3 text-left flex justify-between items-center transition-colors ${expandedHike === hike.completedhikeid ? "bg-green-100 text-green-800" : "hover:bg-gray-50 text-gray-800"}`}>
                     <p className="font-medium">{hike.name || `Trail #${hike.trailid}`}</p>
                     <p aria-hidden="true" className="ml-2 text-gray-500">{expandedHike === hike.completedhikeid ? "▲" : "▼"}</p>
                   </button>
                   {expandedHike === hike.completedhikeid && (
-                    <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col max-h-[200px] overflow-y-auto">
+                    <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col relative">
                       <p><strong>Trail Name:</strong> {hike.name}</p>
                       <p><strong>Location:</strong> {hike.location}</p>
                       <p><strong>Difficulty:</strong> {hike.difficulty}</p>
-                      <p><strong>Duration:</strong> {hike.duration || "Unknown"}</p>
+                      <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
                       <p><strong>Description:</strong> {hike.description}</p>
                       <p><strong>Date Completed:</strong> {hike.date ? new Date(hike.date).toLocaleDateString() : "Unknown"}</p>
                       <p><strong>Time Span:</strong> {formatTimespan(hike.timespan)}</p>
@@ -231,37 +304,20 @@ export default function Logbook() {
                     </section>
                   )}
                 </article>
-              )) : <p className="p-3 text-gray-500">No completed hikes found</p>)}
+              )) : <p className="p-3 text-gray-500">No completed hikes found</p>}
           </section>
         </section>
       </section>
 
+      {/* --- Edit Modal --- */}
       {showEditModal && (
         <section className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <section className="bg-white rounded-lg shadow-lg p-6 w-96 flex flex-col gap-4">
-            <h2 className="text-lg font-semibold text-gray-800">Edit Timespan</h2>
-            <input type="text" value={editTimespan} onChange={e => setEditTimespan(e.target.value)} placeholder="HH:MM:SS" className="rounded-md border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <section className="flex justify-end gap-2 mt-2">
-              <button onClick={handleUpdateTimespan} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">Save</button>
-              <button onClick={closeEditModal} className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors">Cancel</button>
-            </section>
-          </section>
-        </section>
-      )}
-
-      {showStartModal && (
-        <section className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <section className="bg-white rounded-lg shadow-lg p-6 w-96 flex flex-col gap-4">
-            <h2 className="text-lg font-semibold text-gray-800">Update Planned Time</h2>
-            <input
-              type="time"
-              value={startPlannedAt}
-              onChange={e => setStartPlannedAt(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <section className="flex justify-end gap-2 mt-2">
-              <button onClick={handleStartHike} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">Save</button>
-              <button onClick={closeStartModal} className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors">Cancel</button>
+          <section className="bg-white p-6 rounded shadow-md w-96">
+            <h2 className="text-lg font-bold mb-4">Edit Timespan</h2>
+            <input type="text" value={editTimespan} onChange={(e) => setEditTimespan(e.target.value)} className="border p-2 w-full mb-4" />
+            <section className="flex justify-end gap-2">
+              <button onClick={closeEditModal} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+              <button onClick={handleUpdateTimespan} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
             </section>
           </section>
         </section>

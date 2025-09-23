@@ -9,6 +9,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const API_URL = "https://sdp-backend-production.up.railway.app/query";
+  const apiKey = process.env.REACT_APP_API_KEY;
 
   const fetchFeed = async () => {
     setLoading(true);
@@ -17,7 +18,10 @@ export default function Home() {
         sql: "SELECT * FROM activity_feed_table ORDER BY dateposted DESC LIMIT 20",
       };
       const res = await axios.post(API_URL, query, {
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-api-key": apiKey
+        },
       });
       setFeed(res.data.rows);
     } catch (err) {
@@ -45,7 +49,10 @@ export default function Home() {
 
     try {
       await axios.post(API_URL, insertQuery, {
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-api-key": apiKey
+        },
       });
       setNewPost({ title: "", content: "" });
       fetchFeed(); // refresh feed
