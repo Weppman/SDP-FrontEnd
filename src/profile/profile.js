@@ -48,6 +48,7 @@ export default function Profile() {
   console.log("routeUserID:", routeUserID, "loggedInUserID:", loggedInUserID);
   console.log("Using userID:", userID);
   const API_URL = "https://sdp-backend-production.up.railway.app";
+  const apiKey = process.env.REACT_APP_API_KEY;
   console.log(userID);
   const [activeTab, setActiveTab] = useState("global");
   const [userGoals, setUserGoals] = useState([]);
@@ -102,12 +103,17 @@ export default function Profile() {
         // 1️⃣ Fetch my following first
         const myFollowingRes = await fetch(
           `${API_URL}/profile/${loggedInUserID}/friends`,
+          {
+            headers: { 'x-api-key': apiKey }
+          }
         );
         const myFollowingData = await myFollowingRes.json();
         setMyFollowing(myFollowingData);
 
         // 2️⃣ Then fetch profile friends
-        const profileRes = await fetch(`${API_URL}/profile/${userID}/friends`);
+        const profileRes = await fetch(`${API_URL}/profile/${userID}/friends`, {
+          headers: { 'x-api-key': apiKey }
+        });
         const profileData = await profileRes.json();
         setProfileFriends(profileData);
       } catch (err) {
@@ -125,7 +131,9 @@ export default function Profile() {
 
     const fetchProfileUser = async () => {
       try {
-        const res = await axios.post(`${API_URL}/uid`, { uidArr: [userID] });
+        const res = await axios.post(`${API_URL}/uid`, { uidArr: [userID] }, {
+          headers: { 'x-api-key': apiKey }
+        });
         setProfileUser(res.data.userDatas[userID]);
       } catch (err) {
         console.error("Error fetching profile user:", err);
@@ -142,7 +150,9 @@ export default function Profile() {
     const fetchGoals = async () => {
       setLoadingGoals(true);
       try {
-        const res = await axios.get(`${API_URL}/profile/goals/${userID}`);
+        const res = await axios.get(`${API_URL}/profile/goals/${userID}`, {
+          headers: { 'x-api-key': apiKey }
+        });
         const goals = res.data.map((g) => ({
           id: g.id,
           title: g.title,
@@ -173,6 +183,9 @@ export default function Profile() {
       try {
         const res = await axios.get(
           `${API_URL}/profile/global-goals/${userID}`,
+          {
+            headers: { 'x-api-key': apiKey }
+          }
         );
         setGlobalGoals(res.data);
       } catch (err) {
@@ -194,6 +207,9 @@ export default function Profile() {
       try {
         const res = await axios.get(
           `${API_URL}/profile/completed-hikes/${userID}`,
+          {
+            headers: { 'x-api-key': apiKey }
+          }
         );
         setCompletedHikesData(res.data);
       } catch (err) {
@@ -215,6 +231,9 @@ export default function Profile() {
       try {
         const res = await axios.get(
           `${API_URL}/profile/completed-global/${userID}`,
+          {
+            headers: { 'x-api-key': apiKey }
+          }
         );
         setCompletedGlobalGoals(res.data.goals);
       } catch (err) {
@@ -236,6 +255,9 @@ export default function Profile() {
       try {
         const res = await axios.get(
           `${API_URL}/profile/completed-personal/${userID}`,
+          {
+            headers: { 'x-api-key': apiKey }
+          }
         );
         setCompletedPersonalGoals(res.data.goals);
       } catch (err) {
@@ -272,7 +294,12 @@ export default function Profile() {
           title: newGoal.title,
           description: newGoal.description,
         },
-        { headers: { "Content-Type": "application/json" } },
+        { 
+          headers: { 
+            "Content-Type": "application/json",
+            'x-api-key': apiKey
+          } 
+        },
       );
 
       setUserGoals((prev) => [...prev, res.data.goal]);
@@ -305,7 +332,12 @@ export default function Profile() {
           title: editingGoal.title,
           description: editingGoal.description,
         },
-        { headers: { "Content-Type": "application/json" } },
+        { 
+          headers: { 
+            "Content-Type": "application/json",
+            'x-api-key': apiKey
+          } 
+        },
       );
 
       const updatedGoal = res.data.goal;
@@ -336,7 +368,10 @@ export default function Profile() {
       const res = await axios.delete(
         `${API_URL}/profile/edit-goal/${goalToDelete.id}/${userID}`,
         {
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            'x-api-key': apiKey
+          },
         },
       );
 
@@ -375,7 +410,10 @@ export default function Profile() {
     try {
       await fetch(`${API_URL}/follow/${friendId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          'x-api-key': apiKey
+        },
         credentials: "include",
         body: JSON.stringify({ followerId: loggedInUserID }),
       });
@@ -411,7 +449,10 @@ export default function Profile() {
         // Unfollow
         await fetch(`${API_URL}/follow/${profileId}`, {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            'x-api-key': apiKey
+          },
           credentials: "include",
           body: JSON.stringify({ followerId: loggedInUserID }),
         });
@@ -426,7 +467,10 @@ export default function Profile() {
         // Follow
         await fetch(`${API_URL}/follow/${profileId}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            'x-api-key': apiKey
+          },
           credentials: "include",
           body: JSON.stringify({ followerId: loggedInUserID }),
         });
@@ -452,7 +496,12 @@ export default function Profile() {
       const res = await axios.put(
         `${API_URL}/profile/mark-done/${goalId}/${userID}`,
         {},
-        { headers: { "Content-Type": "application/json" } },
+        { 
+          headers: { 
+            "Content-Type": "application/json",
+            'x-api-key': apiKey
+          } 
+        },
       );
 
       const updatedGoal = res.data.goal;

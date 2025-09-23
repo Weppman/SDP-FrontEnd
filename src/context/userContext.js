@@ -16,6 +16,7 @@ export const UserProvider = ({ children }) => {
   });
 
   const API_URL = "https://sdp-backend-production.up.railway.app";
+  const apiKey = process.env.REACT_APP_API_KEY; // Note: Fixed env var name
 
   useEffect(() => {
     const syncUserWithBackend = async () => {
@@ -29,9 +30,15 @@ export const UserProvider = ({ children }) => {
         const token = await getToken();
         const authID = user.id;
 
+        // Common headers for API requests
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          'x-api-key': apiKey,
+        };
+
         // 1️⃣ Check if user exists
         const res = await axios.get(`${API_URL}/user/${authID}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
           withCredentials: true,
         });
 
@@ -42,7 +49,7 @@ export const UserProvider = ({ children }) => {
             `${API_URL}/user`,
             { authID, biography: "" },
             {
-              headers: { Authorization: `Bearer ${token}` },
+              headers,
               withCredentials: true,
             }
           );

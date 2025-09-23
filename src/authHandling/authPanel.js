@@ -3,13 +3,14 @@ import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useAuth } 
 
 export default function AuthPanel() {
   const { getToken } = useAuth();
-
+  const apiKey = process.env.REACT_APP_API_KEY;
   async function callProtected() {
     try {
       const token = await getToken();
       const res = await fetch("https://sdp-backend-production.up.railway.app/protected", {
         headers: {
           Authorization: `Bearer ${token}`,
+          "x-api-key": apiKey,
         },
       });
 

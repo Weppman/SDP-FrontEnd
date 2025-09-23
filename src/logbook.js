@@ -17,11 +17,19 @@ export default function Logbook() {
   const [startingHikeId, setStartingHikeId] = useState(null);
 
   const API_URL = "https://sdp-backend-production.up.railway.app";
+  const apiKey = process.env.REACT_APP_API_KEY;
+
+  // Axios instance with x-api-key header
+  const apiClient = axios.create({
+    baseURL: API_URL,
+    withCredentials: true,
+    headers: { "x-api-key": apiKey },
+  });
 
   const fetchUserData = async (uidArr) => {
     if (!uidArr || uidArr.length === 0) return {};
     try {
-      const res = await axios.post(`${API_URL}/uid`, { uidArr });
+      const res = await apiClient.post("/uid", { uidArr });
       return res.data.userDatas || {};
     } catch (err) {
       console.error("Failed to fetch user data:", err);
@@ -33,46 +41,50 @@ export default function Logbook() {
     if (!userID) return;
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/completed-hikes/${userID}`, { withCredentials: true });
+      const res = await apiClient.get(`/completed-hikes/${userID}`);
       const rows = res.data.rows || [];
       const userDatas = await fetchUserData(rows.map(h => h.userid));
-      setCompletedHikes(rows.map(h => ({ ...h, plannerName: userDatas[h.userid]?.username || `User ${h.userid}` })));
+      setCompletedHikes(
+        rows.map(h => ({ ...h, plannerName: userDatas[h.userid]?.username || `User ${h.userid}` }))
+      );
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
   }, [userID]);
 
-const fetchUpcomingHikes = useCallback(async () => {
-  if (!userID) return;
-  setLoading(true);
-  try {
-    const res = await axios.get(`${API_URL}/upcoming-hikes/${userID}`, { withCredentials: true });
-    const rows = res.data.rows || [];
-    const userDatas = await fetchUserData(rows.map(h => h.plannerid));
-
-    setUpcomingHikes(rows.map(h => ({
-      ...h,
-      plannerName: userDatas[h.plannerid]?.username || `User ${h.plannerid}`,
-      has_started: h.has_started === true || h.has_started === 'true' || h.has_started === 1 || h.has_started === 't',  // ensure boolean
-    })));
-  } catch (err) {
-    console.error(err);
-  }
-  setLoading(false);
-}, [userID]);
-
+  const fetchUpcomingHikes = useCallback(async () => {
+    if (!userID) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.get(`/upcoming-hikes/${userID}`);
+      const rows = res.data.rows || [];
+      const userDatas = await fetchUserData(rows.map(h => h.plannerid));
+      setUpcomingHikes(
+        rows.map(h => ({
+          ...h,
+          plannerName: userDatas[h.plannerid]?.username || `User ${h.plannerid}`,
+          has_started: h.has_started === true || h.has_started === 'true' || h.has_started === 1 || h.has_started === 't',
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  }, [userID]);
 
   const fetchPendingHikes = useCallback(async () => {
     if (!userID) return;
     try {
-      const res = await axios.get(`${API_URL}/pending-hikes/${userID}`);
+      const res = await apiClient.get(`/pending-hikes/${userID}`);
       const hikes = res.data.pendingHikes || [];
       const userDatas = await fetchUserData(hikes.map(h => h.madeby));
-      setPendingHikes(hikes.map(h => ({
-        ...h,
-        inviterName: userDatas[h.madeby]?.username || `User ${h.madeby}`
-      })));
+      setPendingHikes(
+        hikes.map(h => ({
+          ...h,
+          inviterName: userDatas[h.madeby]?.username || `User ${h.madeby}`
+        }))
+      );
     } catch (err) {
       console.error(err);
       setPendingHikes([]);
@@ -112,58 +124,58 @@ const fetchUpcomingHikes = useCallback(async () => {
   const handleUpdateTimespan = async () => {
     if (!selectedHikeId || !editTimespan) return;
     try {
-      await axios.post(`${API_URL}/update-timespan`, { completedHikeId: selectedHikeId, timespan: editTimespan }, { withCredentials: true });
+      await apiClient.post("/update-timespan", { completedHikeId: selectedHikeId, timespan: editTimespan });
       closeEditModal();
       fetchCompletedHikes();
     } catch (err) { console.error(err); }
   };
 
-const handleStartHike = async (plannerId) => {
-  if (!plannerId || !userID || startingHikeId === plannerId) return;
-  setStartingHikeId(plannerId);
-
-  try {
-    const res = await axios.post(`${API_URL}/start-hike`, { plannerId, userId: userID }, { withCredentials: true });
-    if (!res.data.success) throw new Error(res.data.message || "Failed to start hike");
-
-    setUpcomingHikes(prev =>
-      prev.map(h =>
-        h.plannerid === plannerId
-          ? { ...h, has_started: true, planned_at: res.data.planned_at }
-          : h
-      )
-    );
-  } catch (err) {
-    console.error(err);
-    setUpcomingHikes(prev =>
-      prev.map(h => h.plannerid === plannerId ? { ...h, has_started: false } : h)
-    );
-  } finally {
-    setStartingHikeId(null);
-  }
-};
-
+  const handleStartHike = async (plannerId) => {
+    if (!plannerId || !userID || startingHikeId === plannerId) return;
+    setStartingHikeId(plannerId);
+    try {
+      const res = await apiClient.post("/start-hike", { plannerId, userId: userID });
+      if (!res.data.success) throw new Error(res.data.message || "Failed to start hike");
+      setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: true, planned_at: res.data.planned_at } : h));
+    } catch (err) {
+      console.error(err);
+      setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: false } : h));
+    } finally {
+      setStartingHikeId(null);
+    }
+  };
 
   const handleStopHike = async (plannerId) => {
     if (!plannerId || !userID) return;
     try {
-      await axios.post(`${API_URL}/stop-hike`, { plannerId, userId: userID }, { withCredentials: true });
+      await apiClient.post("/stop-hike", { plannerId, userId: userID });
       setUpcomingHikes(prev => prev.filter(h => h.plannerid !== plannerId));
       fetchCompletedHikes();
     } catch (err) { console.error(err); }
   };
 
   const handleAcceptInvite = async (hikeId) => {
-    try { await axios.post(`${API_URL}/hike-accept`, { hikeId }); fetchPendingHikes(); fetchUpcomingHikes(); } catch (err) { console.error(err); }
+    try { 
+      await apiClient.post("/hike-accept", { hikeId });
+      fetchPendingHikes();
+      fetchUpcomingHikes();
+    } catch (err) { console.error(err); }
   };
   const handleDeclineInvite = async (hikeId) => {
-    try { await axios.post(`${API_URL}/hike-decline`, { hikeId }); fetchPendingHikes(); } catch (err) { console.error(err); }
+    try { 
+      await apiClient.post("/hike-decline", { hikeId });
+      fetchPendingHikes();
+    } catch (err) { console.error(err); }
   };
 
-  const filteredCompletedHikes = completedHikes.filter(h => (h.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
-    (h.date ? new Date(h.date).toLocaleDateString() : "").includes(filters.date));
-  const filteredUpcomingHikes = upcomingHikes.filter(h => (h.name || "").toLowerCase().includes(upcomingFilters.name.toLowerCase()) &&
-    (h.planned_at ? new Date(h.planned_at).toLocaleDateString() : "").includes(upcomingFilters.date));
+  const filteredCompletedHikes = completedHikes.filter(h =>
+    (h.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
+    (h.date ? new Date(h.date).toLocaleDateString() : "").includes(filters.date)
+  );
+  const filteredUpcomingHikes = upcomingHikes.filter(h =>
+    (h.name || "").toLowerCase().includes(upcomingFilters.name.toLowerCase()) &&
+    (h.planned_at ? new Date(h.planned_at).toLocaleDateString() : "").includes(upcomingFilters.date)
+  );
 
   if (!userID) return <main className="bg-gray-50 min-h-screen pt-20 p-6 flex flex-col items-center"><p className="text-gray-500">Loading user information...</p></main>;
 
