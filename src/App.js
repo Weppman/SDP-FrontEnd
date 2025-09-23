@@ -8,6 +8,9 @@ import Toolbar from "./toolbar/toolbar.js";
 import SearchUsersUI from "./search/search.js";
 import ProtectedRoute from "./components/ProtectedRoute.js"; // ✅ make sure this is default export
 
+/* eslint-disable react-hooks/exhaustive-deps */
+
+
 function App() {
   return (
     <Router>
