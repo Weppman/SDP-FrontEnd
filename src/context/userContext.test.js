@@ -12,7 +12,7 @@ describe("UserContext", () => {
     jest.clearAllMocks();
   });
 
-  it("sets userData correctly when user exists", async () => {
+  it("FE_AUTH_001 sets userData correctly when user exists", async () => {
     const mockUser = { id: "auth123" };
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
@@ -40,7 +40,7 @@ describe("UserContext", () => {
     expect(contextValue.status).toBe("user");
   });
 
-  it("sets userData to visitor when no user", async () => {
+  it("FE_AUTH_002 sets userData to visitor when no user", async () => {
     clerk.useUser.mockReturnValue({ user: null, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn() });
 
@@ -62,7 +62,7 @@ describe("UserContext", () => {
     expect(contextValue.biography).toBe("");
   });
 
-  it("handles backend errors gracefully", async () => {
+  it("FE_AUTH_003 handles backend errors gracefully", async () => {
     const mockUser = { id: "auth123" };
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token123") });
@@ -89,7 +89,7 @@ describe("UserContext", () => {
     });
   });
 
-  it("inserts new user if not exists", async () => {
+  it("FE_AUTH_004 inserts new user if not exists", async () => {
     const mockUser = { id: "auth999" };
     clerk.useUser.mockReturnValue({ user: mockUser, isLoaded: true });
     clerk.useAuth.mockReturnValue({ getToken: jest.fn().mockResolvedValue("token999") });

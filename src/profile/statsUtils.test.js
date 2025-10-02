@@ -28,43 +28,44 @@ const completedHikesData = {
     { trailid: 102, name: 'Mountain Path' },
   ],
 };
+describe('Utility Functions', () => {
+  test('FE_UTILS_001 calculates completion percentage', () => {
+    expect(getCompletionPercent(mockUserGoals, mockGlobalGoals, mockCompletedGoals)).toBe(50);
+  });
 
-test('completion percentage', () => {
-  expect(getCompletionPercent(mockUserGoals, mockGlobalGoals, mockCompletedGoals)).toBe(50);
-});
+  test('FE_UTILS_002 processes hike stats', () => {
+    const stats = getHikeStats(completedHikesData);
+    expect(stats.totalHikes).toBe(3);
+    expect(stats.longestMonth).toBe(2); // June
+    expect(stats.longestMonthName).toContain('June');
+    expect(stats.latestHikeDate).toBe(new Date('2023-07-10').toLocaleDateString());
+  });
 
-test('hike stats', () => {
-  const stats = getHikeStats(completedHikesData);
-  expect(stats.totalHikes).toBe(3);
-  expect(stats.longestMonth).toBe(2); // June
-  expect(stats.longestMonthName).toContain('June');
-  expect(stats.latestHikeDate).toBe(new Date('2023-07-10').toLocaleDateString());
-});
+  test('FE_UTILS_003 toggles chart slice', () => {
+    expect(toggleSlice([], 1)).toEqual([1]);
+    expect(toggleSlice([1], 1)).toEqual([]);
+  });
 
-test('toggle slice', () => {
-  expect(toggleSlice([], 1)).toEqual([1]);
-  expect(toggleSlice([1], 1)).toEqual([]);
-});
+  test('FE_UTILS_004 retrieves trail counts', () => {
+    const result = getTrailCounts(completedHikesData);
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ trail: 'Forest Trail', count: 2 }),
+        expect.objectContaining({ trail: 'Mountain Path', count: 1 }),
+      ]),
+    );
+  });
 
-test('trail counts', () => {
-  const result = getTrailCounts(completedHikesData);
-  expect(result).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({ trail: 'Forest Trail', count: 2 }),
-      expect.objectContaining({ trail: 'Mountain Path', count: 1 }),
-    ]),
-  );
-});
-
-test('sunburst legend', () => {
-  const monthNodes = [
-    { id: 'center' },
-    { id: 'm0', name: 'June', value: 2 },
-    { id: 'm1', name: 'July', value: 1 },
-  ];
-  const legend = buildSunburstLegend(monthNodes);
-  expect(legend).toEqual([
-    { id: 'm0', name: 'June', value: 2, color: undefined },
-    { id: 'm1', name: 'July', value: 1, color: undefined },
-  ]);
+  test('FE_UTILS_005 displays sunburst legend', () => {
+    const monthNodes = [
+      { id: 'center' },
+      { id: 'm0', name: 'June', value: 2 },
+      { id: 'm1', name: 'July', value: 1 },
+    ];
+    const legend = buildSunburstLegend(monthNodes);
+    expect(legend).toEqual([
+      { id: 'm0', name: 'June', value: 2, color: undefined },
+      { id: 'm1', name: 'July', value: 1, color: undefined },
+    ]);
+  });
 });

@@ -138,7 +138,7 @@ describe('Stats Component', () => {
     jest.clearAllMocks();
   });
 
-  test('renders the stats dashboard with all sections', () => {
+  test('FE_STATS_001 renders the stats dashboard with all sections', () => {
     render(
       <Stats
         userGoals={mockUserGoals}
@@ -157,7 +157,7 @@ describe('Stats Component', () => {
     expect(screen.getByText('Hiking Timeline')).toBeInTheDocument();
   });
 
-  test('calculates and displays correct completion percentage', () => {
+  test('FE_STATS_002 calculates and displays correct completion percentage', () => {
     render(
       <Stats
         userGoals={mockUserGoals}
@@ -180,7 +180,7 @@ describe('Stats Component', () => {
     expect(screen.getByText(`${expectedPercentage}%`)).toBeInTheDocument();
   });
 
-  test('displays correct hike statistics', () => {
+  test('FE_STATS_003 displays correct hike statistics', () => {
     render(
       <Stats
         userGoals={mockUserGoals}
@@ -194,7 +194,7 @@ describe('Stats Component', () => {
     expect(screen.getByText('8/10/2023')).toBeInTheDocument();
   });
 
-  test('handles empty data states correctly', () => {
+  test('FE_STATS_004 handles empty data states correctly', () => {
     render(
       <Stats
         userGoals={[]}
@@ -209,7 +209,7 @@ describe('Stats Component', () => {
     expect(screen.findByText('None')).resolves.toBeInTheDocument();
   });
 
-  test('toggles doughnut chart slices when clicked', () => {
+  test('FE_STATS_005 toggles doughnut chart slices when clicked', () => {
     render(
       <Stats
         userGoals={mockUserGoals}
@@ -224,7 +224,7 @@ describe('Stats Component', () => {
     expect(legendItems[0]).toBeInTheDocument();
   });
 
-  test('processes hike data correctly for charts', async () => {
+  test('FE_STATS_006 processes hike data correctly for charts', async () => {
     render(
       <Stats
         userGoals={mockUserGoals}
@@ -238,7 +238,7 @@ describe('Stats Component', () => {
       expect(screen.getByTestId('highcharts-mock')).toBeInTheDocument();
   });
 
-  test('calculates longest hiking month correctly', () => {
+  test('FE_STATS_007 calculates longest hiking month correctly', () => {
     const hikesWithMultipleMonths = {
       completed_hike_table: [
         { id: 1, trailid: 101, date: '2023-06-15' },
@@ -262,8 +262,8 @@ describe('Stats Component', () => {
 
     expect(screen.getByText('2')).toBeInTheDocument(); // June has 2 hikes
   });
-});
-test('renders completed goals and achievements list', () => {
+
+  test('FE_STATS_008 renders completed goals and achievements list', () => {
     render(
       <Stats
         userGoals={mockUserGoals}
@@ -277,173 +277,177 @@ test('renders completed goals and achievements list', () => {
     expect(screen.findByText('Hike 5 miles')).resolves.toBeInTheDocument();
     expect(screen.findByText('Complete a trail')).resolves.toBeInTheDocument();
   });
+    
+  test('FE_STATS_009 toggles doughnut chart slices on click and restores', () => {
+    render(
+      <Stats
+        userGoals={mockUserGoals}
+        globalGoals={mockGlobalGoals}
+        completedGoals={mockCompletedGoals}
+        completedHikesData={mockCompletedHikesData}
+      />
+    );
+
+    const legendItems = screen.getAllByText(/Completed Goals|Completed Achievements|Incomplete Goals|Incomplete Achievements/);
+    
+    // Toggle first slice off
+    fireEvent.click(legendItems[0]);
+    // Toggle it back on
+    fireEvent.click(legendItems[0]);
+
+    // Should still render the label text
+    expect(legendItems[0]).toBeInTheDocument();
+  });
   
-test('toggles doughnut chart slices on click and restores', () => {
-  render(
-    <Stats
-      userGoals={mockUserGoals}
-      globalGoals={mockGlobalGoals}
-      completedGoals={mockCompletedGoals}
-      completedHikesData={mockCompletedHikesData}
-    />
-  );
+  test('FE_STATS_010 processes hike data correctly for radial and sunburst charts', async () => {
+    render(
+      <Stats
+        userGoals={mockUserGoals}
+        globalGoals={mockGlobalGoals}
+        completedGoals={mockCompletedGoals}
+        completedHikesData={mockCompletedHikesData}
+      />
+    );
 
-  const legendItems = screen.getAllByText(/Completed Goals|Completed Achievements|Incomplete Goals|Incomplete Achievements/);
-  
-  // Toggle first slice off
-  fireEvent.click(legendItems[0]);
-  // Toggle it back on
-  fireEvent.click(legendItems[0]);
+    // ApexCharts radial bar
+    expect(await screen.findByTestId('apex-chart')).toBeInTheDocument();
 
-  // Should still render the label text
-  expect(legendItems[0]).toBeInTheDocument();
+    // Highcharts sunburst
+    expect(await screen.findByTestId('highcharts-mock')).toBeInTheDocument();
+
+    // Sunburst legend updates
+    expect(screen.getByText(/Forest Trail/)).toBeInTheDocument();
+  });
+
+  test('FE_STATS_011 handles sunburst drilldown and restore', () => {
+    render(
+      <Stats
+        userGoals={mockUserGoals}
+        globalGoals={mockGlobalGoals}
+        completedGoals={mockCompletedGoals}
+        completedHikesData={mockCompletedHikesData}
+      />
+    );
+
+    // Access chart ref manually
+    const chartRef = screen.getByTestId('highcharts-mock');
+    expect(chartRef).toBeInTheDocument();
+
+    // Normally click event calls drilldown
+    // Simulate drilldown by calling click handler manually
+    // Since chart is mocked, just confirm chart exists
+    expect(chartRef).toBeInTheDocument();
+  });
+
+  test('FE_STATS_012 renders correctly with unknown trail and month', () => {
+    const dataWithUnknowns = {
+      completed_hike_table: [{ id: 1, trailid: 999, date: null }],
+      trail: [],
+    };
+
+    render(
+      <Stats
+        userGoals={[]}
+        globalGoals={[]}
+        completedGoals={[]}
+        completedHikesData={dataWithUnknowns}
+      />
+    );
+
+    // Should handle unknown trail / month gracefully
+    expect(screen.findByText('0%')).resolves.toBeInTheDocument();
+    expect(screen.findByText('0')).resolves.toBeInTheDocument();
+    expect(screen.findByText('None')).resolves.toBeInTheDocument();
+  });
+
+  test('FE_STATS_013 toggles all doughnut slices sequentially', () => {
+    render(
+      <Stats
+        userGoals={mockUserGoals}
+        globalGoals={mockGlobalGoals}
+        completedGoals={mockCompletedGoals}
+        completedHikesData={mockCompletedHikesData}
+      />
+    );
+
+    const legendItems = screen.getAllByText(/Completed Goals|Completed Achievements|Incomplete Goals|Incomplete Achievements/);
+
+    // Toggle all slices on/off
+    legendItems.forEach((item) => fireEvent.click(item));
+    legendItems.forEach((item) => fireEvent.click(item));
+
+    // All labels still present
+    legendItems.forEach(item => expect(item).toBeInTheDocument());
+  });
+
+  test('FE_STATS_014 renders multiple months correctly for longestMonth calculation', () => {
+    const multipleMonthsData = {
+      completed_hike_table: [
+        { id: 1, trailid: 101, date: '2023-01-01' },
+        { id: 2, trailid: 101, date: '2023-01-15' },
+        { id: 3, trailid: 102, date: '2023-02-01' },
+      ],
+      trail: [
+        { trailid: 101, name: 'Trail A' },
+        { trailid: 102, name: 'Trail B' },
+      ],
+    };
+
+    render(
+      <Stats
+        userGoals={mockUserGoals}
+        globalGoals={mockGlobalGoals}
+        completedGoals={mockCompletedGoals}
+        completedHikesData={multipleMonthsData}
+      />
+    );
+
+    // Longest month should be January with 2 hikes
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  test('FE_STATS_015 calculates top stats card values correctly', () => {
+    const hikesData = {
+      completed_hike_table: [
+        { id: 1, trailid: 101, date: '2023-06-01' },
+        { id: 2, trailid: 102, date: '2023-06-10' },
+        { id: 3, trailid: 101, date: '2023-07-05' },
+      ],
+      trail: [
+        { trailid: 101, name: 'Trail A' },
+        { trailid: 102, name: 'Trail B' },
+      ],
+    };
+
+    render(
+      <Stats
+        userGoals={mockUserGoals}
+        globalGoals={mockGlobalGoals}
+        completedGoals={mockCompletedGoals}
+        completedHikesData={hikesData}
+      />
+    );
+
+    // completionPercent
+    const completedPersonal = mockCompletedGoals.filter(g => g.source === 'personal').length;
+    const completedGlobal = mockCompletedGoals.filter(g => g.source === 'global').length;
+    const incompletePersonal = mockUserGoals.filter(g => !g.done).length;
+    const incompleteGlobal = mockGlobalGoals.length;
+    const expectedPercentage = Math.round(
+      ((completedPersonal + completedGlobal) /
+      (completedPersonal + completedGlobal + incompletePersonal + incompleteGlobal)) * 100
+    );
+    expect(screen.getByText(`${expectedPercentage}%`)).toBeInTheDocument();
+
+    // totalHikes
+    expect(screen.getByText('3')).toBeInTheDocument();
+
+    // longestMonth and longestMonthName (June has 2 hikes)
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText(/June 2023/)).toBeInTheDocument();
+
+    // latestHikeDate
+    expect(screen.getByText('7/5/2023')).toBeInTheDocument(); // US locale date
+  });
 });
-test('processes hike data correctly for radial and sunburst charts', async () => {
-  render(
-    <Stats
-      userGoals={mockUserGoals}
-      globalGoals={mockGlobalGoals}
-      completedGoals={mockCompletedGoals}
-      completedHikesData={mockCompletedHikesData}
-    />
-  );
 
-  // ApexCharts radial bar
-  expect(await screen.findByTestId('apex-chart')).toBeInTheDocument();
-
-  // Highcharts sunburst
-  expect(await screen.findByTestId('highcharts-mock')).toBeInTheDocument();
-
-  // Sunburst legend updates
-  expect(screen.getByText(/Forest Trail/)).toBeInTheDocument();
-});
-test('handles sunburst drilldown and restore', () => {
-  render(
-    <Stats
-      userGoals={mockUserGoals}
-      globalGoals={mockGlobalGoals}
-      completedGoals={mockCompletedGoals}
-      completedHikesData={mockCompletedHikesData}
-    />
-  );
-
-  // Access chart ref manually
-  const chartRef = screen.getByTestId('highcharts-mock');
-  expect(chartRef).toBeInTheDocument();
-
-  // Normally click event calls drilldown
-  // Simulate drilldown by calling click handler manually
-  // Since chart is mocked, just confirm chart exists
-  expect(chartRef).toBeInTheDocument();
-});
-
-test('renders correctly with unknown trail and month', () => {
-  const dataWithUnknowns = {
-    completed_hike_table: [{ id: 1, trailid: 999, date: null }],
-    trail: [],
-  };
-
-  render(
-    <Stats
-      userGoals={[]}
-      globalGoals={[]}
-      completedGoals={[]}
-      completedHikesData={dataWithUnknowns}
-    />
-  );
-
-  // Should handle unknown trail / month gracefully
-  expect(screen.findByText('0%')).resolves.toBeInTheDocument();
-  expect(screen.findByText('0')).resolves.toBeInTheDocument();
-  expect(screen.findByText('None')).resolves.toBeInTheDocument();
-});
-
-test('toggles all doughnut slices sequentially', () => {
-  render(
-    <Stats
-      userGoals={mockUserGoals}
-      globalGoals={mockGlobalGoals}
-      completedGoals={mockCompletedGoals}
-      completedHikesData={mockCompletedHikesData}
-    />
-  );
-
-  const legendItems = screen.getAllByText(/Completed Goals|Completed Achievements|Incomplete Goals|Incomplete Achievements/);
-
-  // Toggle all slices on/off
-  legendItems.forEach((item) => fireEvent.click(item));
-  legendItems.forEach((item) => fireEvent.click(item));
-
-  // All labels still present
-  legendItems.forEach(item => expect(item).toBeInTheDocument());
-});
-
-test('renders multiple months correctly for longestMonth calculation', () => {
-  const multipleMonthsData = {
-    completed_hike_table: [
-      { id: 1, trailid: 101, date: '2023-01-01' },
-      { id: 2, trailid: 101, date: '2023-01-15' },
-      { id: 3, trailid: 102, date: '2023-02-01' },
-    ],
-    trail: [
-      { trailid: 101, name: 'Trail A' },
-      { trailid: 102, name: 'Trail B' },
-    ],
-  };
-
-  render(
-    <Stats
-      userGoals={mockUserGoals}
-      globalGoals={mockGlobalGoals}
-      completedGoals={mockCompletedGoals}
-      completedHikesData={multipleMonthsData}
-    />
-  );
-
-  // Longest month should be January with 2 hikes
-  expect(screen.getByText('2')).toBeInTheDocument();
-});
-
-test('calculates top stats card values correctly', () => {
-  const hikesData = {
-    completed_hike_table: [
-      { id: 1, trailid: 101, date: '2023-06-01' },
-      { id: 2, trailid: 102, date: '2023-06-10' },
-      { id: 3, trailid: 101, date: '2023-07-05' },
-    ],
-    trail: [
-      { trailid: 101, name: 'Trail A' },
-      { trailid: 102, name: 'Trail B' },
-    ],
-  };
-
-  render(
-    <Stats
-      userGoals={mockUserGoals}
-      globalGoals={mockGlobalGoals}
-      completedGoals={mockCompletedGoals}
-      completedHikesData={hikesData}
-    />
-  );
-
-  // completionPercent
-  const completedPersonal = mockCompletedGoals.filter(g => g.source === 'personal').length;
-  const completedGlobal = mockCompletedGoals.filter(g => g.source === 'global').length;
-  const incompletePersonal = mockUserGoals.filter(g => !g.done).length;
-  const incompleteGlobal = mockGlobalGoals.length;
-  const expectedPercentage = Math.round(
-    ((completedPersonal + completedGlobal) /
-    (completedPersonal + completedGlobal + incompletePersonal + incompleteGlobal)) * 100
-  );
-  expect(screen.getByText(`${expectedPercentage}%`)).toBeInTheDocument();
-
-  // totalHikes
-  expect(screen.getByText('3')).toBeInTheDocument();
-
-  // longestMonth and longestMonthName (June has 2 hikes)
-  expect(screen.getByText('2')).toBeInTheDocument();
-  expect(screen.getByText(/June 2023/)).toBeInTheDocument();
-
-  // latestHikeDate
-  expect(screen.getByText('7/5/2023')).toBeInTheDocument(); // US locale date
-});

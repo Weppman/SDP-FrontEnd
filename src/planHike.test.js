@@ -35,7 +35,7 @@ describe("PlanHike Component", () => {
     jest.clearAllMocks();
   });
 
-  test("renders header and filters", async () => {
+  test("FE_PLAN_001 renders header and filters", async () => {
     render(<PlanHike />);
     expect(screen.getByText("Plan Hike")).toBeInTheDocument();
     expect(await screen.findByText("Trail A")).toBeInTheDocument();
@@ -47,7 +47,7 @@ describe("PlanHike Component", () => {
     });
   });
 
-  test("filters hikes based on input", async () => {
+  test("FE_PLAN_002 filters hikes based on input", async () => {
     render(<PlanHike />);
     const nameFilter = screen.getByLabelText(/name/i);
     fireEvent.change(nameFilter, { target: { value: "Trail A" } });
@@ -55,7 +55,7 @@ describe("PlanHike Component", () => {
     expect(screen.queryByText("Trail B")).toBeNull();
   });
 
-  test("opens and closes plan hike modal", async () => {
+  test("FE_PLAN_003 opens and closes plan hike modal", async () => {
     render(<PlanHike />);
     const trailAToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailAToggle.closest("article");
@@ -70,7 +70,7 @@ describe("PlanHike Component", () => {
     expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument();
   });
 
-  test("validates date before planning hike", async () => {
+  test("FE_PLAN_004 validates date before planning hike", async () => {
     render(<PlanHike />);
     const trailAToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailAToggle.closest("article");
@@ -88,7 +88,7 @@ describe("PlanHike Component", () => {
     await waitFor(() => expect(screen.getByText(/Plan Hike: Trail A/i)).toBeInTheDocument());
   });
 
-  test("plans hike with future date", async () => {
+  test("FE_PLAN_005 plans hike with future date", async () => {
     render(<PlanHike />);
     const trailAToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailAToggle.closest("article");
@@ -106,7 +106,7 @@ describe("PlanHike Component", () => {
     await waitFor(() => expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument());
   });
 
-  test("invites friends correctly", async () => {
+  test("FE_PLAN_006 invites friends correctly", async () => {
     render(<PlanHike />);
     const trailAToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailAToggle.closest("article");

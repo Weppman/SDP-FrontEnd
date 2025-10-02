@@ -38,7 +38,11 @@ describe("Profile Component", () => {
     jest.clearAllMocks();
   });
 
-  test("completed goals tab renders with no completed goals", async () => {
+  jest.mock("../context/userContext", () => ({
+    useUserContext: jest.fn(),
+  }));
+
+  test("FE_PROFILE_001 completed goals tab renders with no completed goals", async () => {
     // Mock axios for completed goals
     axios.post.mockResolvedValue({ data: { rows: [] } });
 
@@ -53,7 +57,7 @@ describe("Profile Component", () => {
     ).toBeInTheDocument();
   });
 
-  test("stats tab renders Stats mock even with empty data", async () => {
+  test("FE_PROFILE_002 stats tab renders Stats mock even with empty data", async () => {
     // Mock axios calls for global and personal goals
     axios.post.mockResolvedValue({ data: { rows: [] } });
 
@@ -66,7 +70,7 @@ describe("Profile Component", () => {
     expect(screen.getByTestId("global-goals-count")).toHaveTextContent("0");
   });
 
-  test("allows toggling pinned hikes", async () => {
+  test("FE_PROFILE_003 allows toggling pinned hikes", async () => {
     render(<Profile />);
 
     // Wait for a pinned hike to appear
@@ -95,7 +99,18 @@ describe("Profile Component", () => {
     );
   });
 
-  test("stats tab renders Stats mock even with empty data", async () => {
+  test("FE_PROFILE_004 shows empty friends message on fetch error", async () => {
+    global.fetch = jest.fn().mockRejectedValueOnce(new Error("Network error"));
+
+    render(<Profile />);
+    fireEvent.click(await screen.findByRole("button", { name: /Following/i }));
+
+    expect(
+      await screen.findByText(/This user isn't following anyone yet/i),
+    ).toBeInTheDocument();
+  });
+
+  test("FE_PROFILE_005 stats tab renders Stats mock even with empty data", async () => {
     // Mock axios calls for global and personal goals
     axios.post.mockResolvedValue({ data: { rows: [] } });
 
@@ -110,18 +125,8 @@ describe("Profile Component", () => {
     expect(screen.getByTestId("user-goals-count")).toHaveTextContent("0");
     expect(screen.getByTestId("global-goals-count")).toHaveTextContent("0");
   });
-  test("shows empty friends message on fetch error", async () => {
-    global.fetch = jest.fn().mockRejectedValueOnce(new Error("Network error"));
 
-    render(<Profile />);
-    fireEvent.click(await screen.findByRole("button", { name: /Following/i }));
-
-    expect(
-      await screen.findByText(/This user isn't following anyone yet/i),
-    ).toBeInTheDocument();
-  });
-
-  test("can edit, mark done, and delete a personal goal", async () => {
+  test("FE_PROFILE_006 can edit, mark done, and delete a personal goal", async () => {
     // --- Mock initial personal goals ---
     axios.get.mockResolvedValueOnce({
       data: [
@@ -211,7 +216,8 @@ describe("Profile Component", () => {
       ],
     });
   });
-  test("full profile interaction workflow", async () => {
+
+  test("FE_PROFILE_007 full profile interaction workflow", async () => {
     useUserContext.mockReturnValue({ userID: "1" });
     const mockProfileUser = { username: "testuser", imageUrl: "avatar.png" };
     axios.post.mockResolvedValueOnce({
@@ -288,7 +294,8 @@ describe("Profile Component", () => {
       screen.getByText(/This user isn't following anyone yet/i),
     ).toBeInTheDocument();
   });
-  test("shows fallback when fetching friends fails", async () => {
+
+  test("FE_PROFILE_008 shows fallback when fetching friends fails", async () => {
     global.fetch = jest.fn().mockRejectedValueOnce(new Error("Network error"));
 
     render(<Profile />);
@@ -298,11 +305,8 @@ describe("Profile Component", () => {
       await screen.findByText(/This user isn't following anyone yet/i),
     ).toBeInTheDocument();
   });
-  jest.mock("../context/userContext", () => ({
-    useUserContext: jest.fn(),
-  }));
 
-  test("Unfollow friend from friends tab", async () => {
+  test("FE_PROFILE_009 Unfollow friend from friends tab", async () => {
     global.fetch = jest.fn(() =>
       Promise.resolve({
         json: () =>

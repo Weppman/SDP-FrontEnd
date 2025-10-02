@@ -12,7 +12,7 @@ describe("Home", () => {
     useUserContext.mockReturnValue({ userID: "123", status: "user" });
   });
 
-  it("renders activity feed when user is logged in", async () => {
+  it("FE_HOME_001 renders activity feed when user is logged in", async () => {
     axios.post.mockResolvedValue({
       data: {
         rows: [
@@ -35,7 +35,7 @@ describe("Home", () => {
     });
   });
 
-  it("submits new post form successfully", async () => {
+  it("FE_HOME_002 submits new post form successfully", async () => {
     axios.post.mockResolvedValue({
       data: { rows: [{ activityfeedid: 2 }] },
     });
@@ -61,7 +61,7 @@ describe("Home", () => {
     });
   });
 
-  it("renders empty feed message when no posts", async () => {
+  it("FE_HOME_003 renders empty feed message when no posts", async () => {
   axios.post.mockResolvedValue({ data: { rows: [] } });
 
   render(<Home />);
@@ -69,26 +69,24 @@ describe("Home", () => {
   await waitFor(() => {
     expect(screen.getByText("No activity yet.")).toBeInTheDocument();
   });
-});
-
-it("shows visitor message instead of form when not signed in", async () => {
-  useUserContext.mockReturnValue({ userID: null, status: "visitor" });
-
-  render(<Home />);
-
-  expect(screen.getByText("Please sign in to add a post.")).toBeInTheDocument();
-});
-
-it("handles fetchFeed axios error gracefully", async () => {
-  axios.post.mockRejectedValue(new Error("Failed to fetch"));
-
-  render(<Home />);
-
-  await waitFor(() => {
-    expect(screen.getByText("No activity yet.")).toBeInTheDocument(); // fallback
   });
-});
 
+  it("FE_HOME_004 shows visitor message instead of form when not signed in", async () => {
+    useUserContext.mockReturnValue({ userID: null, status: "visitor" });
 
+    render(<Home />);
+
+    expect(screen.getByText("Please sign in to add a post.")).toBeInTheDocument();
+  });
+
+  it("FE_HOME_005 handles fetchFeed axios error gracefully", async () => {
+    axios.post.mockRejectedValue(new Error("Failed to fetch"));
+
+    render(<Home />);
+
+    await waitFor(() => {
+      expect(screen.getByText("No activity yet.")).toBeInTheDocument(); // fallback
+    });
+  });
 
 });

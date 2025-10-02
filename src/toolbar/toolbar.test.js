@@ -28,7 +28,7 @@ jest.mock("@clerk/clerk-react", () => ({
 }));
 
 describe("Toolbar", () => {
-  it("renders navigation links for a logged-in user", () => {
+  it("FE_NAV_001 renders navigation links for a logged-in user", () => {
     render(
       <BrowserRouter>
         <Toolbar />
