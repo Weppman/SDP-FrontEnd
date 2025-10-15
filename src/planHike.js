@@ -176,11 +176,11 @@ export default function PlanHike() {
                           <section className="mt-2 w-full h-64">
                             <iframe
                               title={`Map of ${hike.name}`}
-                              width="70%"
+                              width="100%"
                               height="100%"
                               frameBorder="0"
                               style={{ border: 0 }}
-                              src={`https://www.google.com/maps?q=${hike.coordinates.lat},${hike.coordinates.lng}&hl=en&z=15&output=embed`}
+                              src={`https://www.google.com/maps?q=${hike.coordinates[0]},${hike.coordinates[1]}&hl=en&z=16&output=embed`}
                               allowFullScreen
                             ></iframe>
                           </section>
