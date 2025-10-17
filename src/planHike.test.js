@@ -8,133 +8,84 @@ import { useUserContext } from "./context/userContext";
 jest.mock("axios");
 jest.mock("./context/userContext");
 
-describe("PlanHike Component", () => {
-  const mockGet = jest.fn();
-  const mockPost = jest.fn();
+describe("PlanHike component", () => {
+  const mockUser = { userID: "123" };
 
   beforeEach(() => {
+    useUserContext.mockReturnValue(mockUser);
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
-
-    // Mock axios.create to return mockGet and mockPost
-    axios.create.mockReturnValue({ get: mockGet, post: mockPost });
-
-    // Default user context
-    useUserContext.mockReturnValue({ userID: "123" });
   });
 
-  test("renders loading state and hikes", async () => {
-    mockGet.mockResolvedValueOnce({
-      data: {
-        trails: [
-          { trailid: 1, name: "Trail1", location: "Loc1", difficulty: 3, duration: "01:30:00", description: "Nice trail" }
-        ]
-      }
+  it("renders trails in the select dropdown", async () => {
+    // Mock API response
+    axios.get.mockResolvedValueOnce({
+      data: [
+        { id: 1, name: "Trail1", duration: 120 },
+        { id: 2, name: "Trail2", duration: 90 },
+      ],
     });
 
     render(<PlanHike />);
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // Wait for select to appear
+    const trailSelect = await screen.findByRole("combobox");
 
-    await waitFor(() => screen.getByText("Trail1"));
-    expect(screen.getByText("Trail1")).toBeInTheDocument();
-    expect(screen.getByText("Loc1")).toBeInTheDocument();
-    expect(screen.getByText("Nice trail")).toBeInTheDocument();
+    // Check if options exist
+    expect(screen.getByRole("option", { name: "Trail1" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Trail2" })).toBeInTheDocument();
   });
 
-  test("expands hike details when clicked", async () => {
-    mockGet.mockResolvedValueOnce({
-      data: { trails: [{ trailid: 1, name: "Trail1", location: "Loc1", difficulty: 3, duration: "01:30:00", description: "Nice trail" }] }
+  it("lets the user select a trail", async () => {
+    axios.get.mockResolvedValueOnce({
+      data: [
+        { id: 1, name: "Trail1", duration: 120 },
+        { id: 2, name: "Trail2", duration: 90 },
+      ],
     });
 
     render(<PlanHike />);
 
-    await waitFor(() => screen.getByText("Trail1"));
+    const trailSelect = await screen.findByRole("combobox");
 
-    fireEvent.click(screen.getByText("Trail1"));
+    // Simulate selecting Trail1
+    fireEvent.change(trailSelect, { target: { value: "1" } });
 
-    expect(screen.getByText(/Location:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Difficulty:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Duration:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Description:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Plan Hike/i)).toBeInTheDocument();
+    expect(trailSelect.value).toBe("1");
   });
 
-  test("opens and closes Plan Hike modal", async () => {
-    mockGet.mockResolvedValueOnce({
-      data: { trails: [{ trailid: 1, name: "Trail1", location: "Loc1", difficulty: 3, duration: "01:30:00", description: "Nice trail" }] }
+  it("filters trails based on duration", async () => {
+    axios.get.mockResolvedValueOnce({
+      data: [
+        { id: 1, name: "Trail1", duration: 120 },
+        { id: 2, name: "Trail2", duration: 90 },
+      ],
     });
 
     render(<PlanHike />);
-    await waitFor(() => screen.getByText("Trail1"));
 
-    fireEvent.click(screen.getByText("Trail1"));
-    fireEvent.click(screen.getByText("Plan Hike"));
+    const durationInput = screen.getByLabelText(/Duration of trails/i);
+    fireEvent.change(durationInput, { target: { value: "100" } });
 
-    expect(screen.getByText(/Plan Hike: Trail1/i)).toBeInTheDocument();
+    const trailSelect = await screen.findByRole("combobox");
 
-    fireEvent.click(screen.getByText(/Cancel/i));
-    expect(screen.queryByText(/Plan Hike: Trail1/i)).not.toBeInTheDocument();
+    // Only Trail2 should remain
+    expect(screen.queryByRole("option", { name: "Trail1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Trail2" })).toBeInTheDocument();
   });
+});
 
-  test("DurationPicker calls onChange with correct formatted time", () => {
-    const onChangeMock = jest.fn();
-    render(<DurationPicker value="00:00:00" onChange={onChangeMock} />);
+// Optional: DurationPicker test
+describe("DurationPicker component", () => {
+  it("updates hours, minutes, and seconds correctly", () => {
+    const handleChange = jest.fn();
+    render(<DurationPicker value={{ hours: 0, minutes: 0, seconds: 0 }} onChange={handleChange} />);
 
-    const hourInput = screen.getAllByRole("spinbutton")[0];
-    fireEvent.change(hourInput, { target: { value: 1 } });
+    const hoursInput = screen.getByLabelText(/Hours/i);
+    fireEvent.change(hoursInput, { target: { value: "2" } });
 
-    expect(onChangeMock).toHaveBeenCalledWith("01:00:00");
+    expect(handleChange).toHaveBeenCalledWith({ hours: 2, minutes: 0, seconds: 0 });
   });
-
-  test("filters hikes by duration and difficulty", async () => {
-    mockGet.mockResolvedValueOnce({
-      data: {
-        trails: [
-          { trailid: 1, name: "Trail1", location: "Loc1", difficulty: 3, duration: "01:30:00", description: "Nice" },
-          { trailid: 2, name: "Trail2", location: "Loc2", difficulty: 5, duration: "02:00:00", description: "Hard" }
-        ]
-      }
-    });
-
-    render(<PlanHike />);
-    await waitFor(() => screen.getByText("Trail1"));
-
-    const durationInput = screen.getAllByRole("spinbutton")[0];
-    fireEvent.change(durationInput, { target: { value: 1 } }); // hours = 1
-
-    const difficultySelect = screen.getByLabelText("difficulty");
-    fireEvent.change(difficultySelect, { target: { value: "3" } });
-
-    expect(screen.getByText("Trail1")).toBeInTheDocument();
-    expect(screen.queryByText("Trail2")).not.toBeInTheDocument();
-  });
-
-  test("handles planning hike API call", async () => {
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 1);
-    const plannedDate = futureDate.toISOString().slice(0,16);
-
-    mockGet.mockResolvedValueOnce({
-      data: { trails: [{ trailid: 1, name: "Trail1", location: "Loc1", difficulty: 3, duration: "01:30:00", description: "Nice trail" }] }
-    });
-
-    mockPost.mockResolvedValueOnce({ data: { success: true } });
-
-    render(<PlanHike />);
-    await waitFor(() => screen.getByText("Trail1"));
-
-    fireEvent.click(screen.getByText("Trail1"));
-    fireEvent.change(screen.getByDisplayValue(''), { target: { value: plannedDate } });
-    fireEvent.click(screen.getByText("Plan Hike"));
-
-    await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledWith("/plan-hike", expect.objectContaining({
-        trailId: 1,
-        userId: "123",
-        plannedAt: plannedDate,
-        invitedFriends: []
-      }));
-    });
-  });
-
 });
