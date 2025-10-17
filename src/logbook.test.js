@@ -28,25 +28,40 @@ describe("Logbook Component", () => {
     expect(screen.getByText(/loading user information/i)).toBeInTheDocument();
   });
 
-  it("renders upcoming and completed hikes", async () => {
+  it("renders upcoming and completed hikes with adjusted times", async () => {
+    const completedHikeData = [{ completedhikeid: 1, name: "Test Hike", date: "2025-09-28", timespan: "01:30:00" }];
+    const upcomingHikeData = [{ plannerid: 2, name: "Upcoming Hike", planned_at: "2025-10-01 12:00:00", has_started: false }];
+
     mockApiClient.get.mockImplementation((url) => {
-      if (url.includes("completed-hikes"))
-        return Promise.resolve({ data: { rows: [{ completedhikeid: 1, name: "Test Hike", date: "2025-09-28", timespan: "01:30:00" }] } });
-      if (url.includes("upcoming-hikes"))
-        return Promise.resolve({ data: { rows: [{ plannerid: 2, name: "Upcoming Hike", planned_at: "2025-10-01T10:00:00", has_started: false }] } });
-      if (url.includes("pending-hikes"))
-        return Promise.resolve({ data: { pendingHikes: [] } });
+      if (url.includes("completed-hikes")) return Promise.resolve({ data: { rows: completedHikeData } });
+      if (url.includes("upcoming-hikes")) return Promise.resolve({ data: { rows: upcomingHikeData } });
+      if (url.includes("pending-hikes")) return Promise.resolve({ data: { pendingHikes: [] } });
       return Promise.resolve({ data: {} });
     });
 
-    mockApiClient.post.mockResolvedValue({ data: { userDatas: { "1": { username: "Alice" }, "2": { username: "Bob" } } } });
+    mockApiClient.post.mockResolvedValue({
+      data: {
+        userDatas: { "1": { username: "Alice" }, "2": { username: "Bob" } }
+      }
+    });
 
     render(<Logbook />);
 
-    // Wait for hikes to render
+    // Check completed hikes render
     expect(await screen.findByText("Test Hike")).toBeInTheDocument();
-    expect(screen.getByText("Upcoming Hike")).toBeInTheDocument();
 
+    // Check upcoming hike renders and subtractHours is applied
+    const upcoming = await screen.findByText("Upcoming Hike");
+    fireEvent.click(upcoming);
+
+    // subtractHours subtracts 2 hours
+    const adjustedDate = new Date("2025-10-01T12:00:00Z");
+    adjustedDate.setUTCHours(adjustedDate.getUTCHours() - 2);
+    const formatted = adjustedDate.toLocaleString();
+
+    expect(screen.getByText(new RegExp(formatted))).toBeInTheDocument();
+
+    // Check timespan displayed correctly
     fireEvent.click(screen.getByText("Test Hike"));
     expect(screen.getByText("01:30:00")).toBeInTheDocument();
   });
@@ -69,7 +84,7 @@ describe("Logbook Component", () => {
   it("filters completed hikes by name", async () => {
     mockApiClient.get.mockImplementation((url) => {
       if (url.includes("completed-hikes")) return Promise.resolve({ data: { rows: [{ completedhikeid: 1, name: "Alpha Hike", date: "2025-09-28", timespan: "01:00:00" }] } });
-      if (url.includes("upcoming-hikes")) return Promise.resolve({ data: { rows: [{ plannerid: 2, name: "Beta Hike", planned_at: "2025-10-01T10:00:00", has_started: false }] } });
+      if (url.includes("upcoming-hikes")) return Promise.resolve({ data: { rows: [{ plannerid: 2, name: "Beta Hike", planned_at: "2025-10-01 12:00:00", has_started: false }] } });
       if (url.includes("pending-hikes")) return Promise.resolve({ data: { pendingHikes: [] } });
       return Promise.resolve({ data: {} });
     });
@@ -84,7 +99,7 @@ describe("Logbook Component", () => {
 
   it("starts and stops upcoming hikes", async () => {
     mockApiClient.get.mockImplementation((url) => {
-      if (url.includes("upcoming-hikes")) return Promise.resolve({ data: { rows: [{ plannerid: 2, name: "Test Hike", planned_at: "2025-10-01T10:00:00", has_started: false }] } });
+      if (url.includes("upcoming-hikes")) return Promise.resolve({ data: { rows: [{ plannerid: 2, name: "Test Hike", planned_at: "2025-10-01 12:00:00", has_started: false }] } });
       if (url.includes("completed-hikes")) return Promise.resolve({ data: { rows: [] } });
       if (url.includes("pending-hikes")) return Promise.resolve({ data: { pendingHikes: [] } });
       return Promise.resolve({ data: {} });

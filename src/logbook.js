@@ -128,12 +128,24 @@ const openEditModal = (hike) => {
   };
 
   // Subtract hours from a Date string
-const subtractHours = (dateStr, hours = 2) => {
-  if (!dateStr) return "Unknown";
-  const date = new Date(dateStr);
-  date.setHours(date.getHours() - hours);
-  return date.toLocaleString(); // or .toLocaleDateString() if you only want date
-};
+/**
+ * Subtract hours from a server timestamp string and return formatted local string.
+ * Handles YYYY-MM-DD HH:mm:ss timestamps consistently.
+ */
+  const subtractHours = (timestamp, hours = 2) => {
+    if (!timestamp) return "Unknown";
+
+    // Replace space with 'T' to make it ISO 8601 compatible, then treat as UTC
+    let isoString = timestamp.replace(" ", "T") + "Z";
+    const date = new Date(isoString);
+
+    // Subtract the hours
+    date.setUTCHours(date.getUTCHours() - hours);
+
+    // Format to local string
+    return date.toLocaleString(); 
+  };
+
 
 
   const handleUpdateHike = async () => {
