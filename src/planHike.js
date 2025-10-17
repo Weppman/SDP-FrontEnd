@@ -88,7 +88,7 @@ export default function PlanHike() {
 
   const filteredHikes = hikes.filter(hike => {
     const hikeDuration = durationToSeconds(hike.duration);
-    const filterDuration = filters.duration === "" ? null : durationToSeconds(filters.duration);
+    const filterDuration = (!filters.duration || filters.duration === "00:00:00") ? null : durationToSeconds(filters.duration);
 
     const hikeDiff = Number(hike.difficulty);
     const filterDiff = filters.difficulty === "" ? null : Number(filters.difficulty);
