@@ -172,6 +172,19 @@ export default function PlanHike() {
                         <p><strong>Difficulty:</strong> {hike.difficulty?.toString() || "Unknown"}</p>
                         <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
                         <p><strong>Description:</strong> {hike.description || "No description"}</p>
+                        {hike.coordinates && (
+                          <section className="mt-2 w-full h-64">
+                            <iframe
+                              title={`Map of ${hike.name}`}
+                              width="70%"
+                              height="100%"
+                              frameBorder="0"
+                              style={{ border: 0 }}
+                              src={`https://www.google.com/maps?q=${hike.coordinates.lat},${hike.coordinates.lng}&hl=en&z=15&output=embed`}
+                              allowFullScreen
+                            ></iframe>
+                          </section>
+                        )}
                       </section>
                       <button onClick={() => openPlanModal(hike)} className="mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors self-end">Plan Hike</button>
                     </section>

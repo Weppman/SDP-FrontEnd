@@ -11,24 +11,18 @@ export default function Home() {
   const API_URL = "https://sdp-backend-production.up.railway.app/query";
   const apiKey = process.env.REACT_APP_API_KEY;
 
-  const fetchFeed = async () => {
-    setLoading(true);
-    try {
-      const query = {
-        sql: "SELECT * FROM activity_feed_table ORDER BY dateposted DESC LIMIT 20",
-      };
-      const res = await axios.post(API_URL, query, {
-        headers: { 
-          "Content-Type": "application/json",
-          "x-api-key": apiKey
-        },
-      });
-      setFeed(res.data.rows);
-    } catch (err) {
-      console.error("Error fetching feed:", err);
-    }
-    setLoading(false);
-  };
+const fetchFeed = async () => {
+  setLoading(true);
+  try {
+    const res = await axios.get("https://sdp-backend-production.up.railway.app/activity-feed", {
+      headers: { "x-api-key": apiKey } // if your backend needs it
+    });
+    setFeed(res.data.rows); // should match your JSON structure
+  } catch (err) {
+    console.error("Error fetching feed:", err);
+  }
+  setLoading(false);
+};
 
   useEffect(() => {
     fetchFeed();
@@ -122,7 +116,7 @@ export default function Home() {
                 >
                   <header className="flex justify-between items-center mb-2">
                     <h3 className="font-semibold text-gray-800">{item.title}</h3>
-                    <span className="text-sm text-gray-500">UID: {item.userid}</span>
+                    <span className="text-sm text-gray-500">{item.name}</span>
                   </header>
                   <p className="text-gray-600">{item.content}</p>
                   <p className="mt-1 text-xs text-gray-400">
