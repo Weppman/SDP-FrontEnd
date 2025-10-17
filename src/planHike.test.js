@@ -1,10 +1,9 @@
 // planHike.test.js
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import PlanHike, { DurationPicker } from "./planHike";
+import PlanHike, { DurationPicker } from "./planHike.js";
 import axios from "axios";
 import { useUserContext } from "./context/userContext.js";
-import {DurationPicker} from "./planHike.js"
 
 jest.mock("axios");
 
