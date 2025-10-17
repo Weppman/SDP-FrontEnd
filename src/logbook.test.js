@@ -1,235 +1,216 @@
-const React = require("react");
-const { render, screen, fireEvent, waitFor, within } = require("@testing-library/react");
-const Logbook = require("./logbook").default;
-const { useUserContext } = require("./context/userContext.js");
-const axios = require("axios");
-test("true is true", () => {
-  expect(true).toBe(true);
+// logbook.test.js
+import React from "react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import Logbook from "./logbook";
+import { useUserContext } from "./context/userContext.js";
+import axios from "axios";
+
+jest.mock("axios");
+jest.mock("./context/userContext.js");
+
+const mockUserID = "user123";
+
+// Mock Axios instance returned by axios.create
+const mockAxiosInstance = {
+  get: jest.fn(),
+  post: jest.fn(),
+  delete: jest.fn(),
+};
+
+beforeEach(() => {
+  useUserContext.mockReturnValue({ userID: mockUserID });
+  axios.create.mockReturnValue(mockAxiosInstance);
+
+  // Clear all previous mocks
+  jest.clearAllMocks();
 });
 
-// jest.mock("axios");
-// jest.mock("./context/userContext.js");
+describe("Logbook Component", () => {
+  it("renders loading message when no userID", () => {
+    useUserContext.mockReturnValue({ userID: null });
+    render(<Logbook />);
+    expect(screen.getByText(/loading user information/i)).toBeInTheDocument();
+  });
 
-// const mockUserID = "user123";
+  it("renders upcoming and completed hikes", async () => {
+    // Mock GET responses
+    mockAxiosInstance.get.mockImplementation((url) => {
+      if (url === `/completed-hikes/${mockUserID}`) {
+        return Promise.resolve({
+          data: {
+            rows: [
+              {
+                completedhikeid: 1,
+                userid: 1,
+                name: "Test Hike",
+                date: "2025-09-28",
+                timespan: "01:30:00",
+              },
+            ],
+          },
+        });
+      }
+      if (url === `/upcoming-hikes/${mockUserID}`) {
+        return Promise.resolve({
+          data: {
+            rows: [
+              {
+                plannerid: 2,
+                name: "Upcoming Hike",
+                planned_at: "2025-10-01T10:00:00",
+                has_started: false,
+              },
+            ],
+          },
+        });
+      }
+      if (url === `/pending-hikes/${mockUserID}`) {
+        return Promise.resolve({ data: { pendingHikes: [] } });
+      }
+      return Promise.resolve({ data: {} });
+    });
 
-// describe("Logbook Component", function () {
-//   beforeEach(function () {
-//     useUserContext.mockReturnValue({ userID: mockUserID });
-//     axios.create = jest.fn(() => axios);
-//   });
+    // Mock POST for user data
+    mockAxiosInstance.post.mockResolvedValue({
+      data: {
+        userDatas: {
+          "1": { username: "Alice" },
+          "2": { username: "Bob" },
+        },
+      },
+    });
 
-//   afterEach(function () {
-//     jest.clearAllMocks();
-//   });
+    render(<Logbook />);
 
-//   it("renders loading message when no userID", function () {
-//     useUserContext.mockReturnValue({ userID: null });
-//     render(React.createElement(Logbook));
-//     expect(screen.getByText(/loading user information/i)).toBeInTheDocument();
-//   });
+    await waitFor(() => expect(screen.getByText("Test Hike")).toBeInTheDocument());
+    expect(screen.getByText("Upcoming Hike")).toBeInTheDocument();
 
-//   it("renders upcoming and completed hikes", async function () {
-//     axios.create = jest.fn(() => axios);
-//     axios.get.mockImplementation(function (url) {
-//       if (url === `/completed-hikes/${mockUserID}`) {
-//         return Promise.resolve({
-//           data: {
-//             rows: [
-//               {
-//                 completedhikeid: 1,
-//                 name: "Test Hike",
-//                 date: "2025-09-28",
-//                 timespan: "01:30:00",
-//               },
-//             ],
-//           },
-//         });
-//       }
-//       if (url === `/upcoming-hikes/${mockUserID}`) {
-//         return Promise.resolve({
-//           data: {
-//             rows: [
-//               {
-//                 plannerid: 2,
-//                 name: "Upcoming Hike",
-//                 planned_at: "2025-10-01T10:00:00",
-//                 has_started: false,
-//               },
-//             ],
-//           },
-//         });
-//       }
-//       if (url === `/pending-hikes/${mockUserID}`) {
-//         return Promise.resolve({ data: { pendingHikes: [] } });
-//       }
-//       return Promise.resolve({ data: {} });
-//     });
+    fireEvent.click(screen.getByText("Test Hike"));
+    expect(screen.getByText(/01:30:00/)).toBeInTheDocument();
+  });
 
-//     axios.post.mockResolvedValue({
-//       data: { userDatas: { "1": { username: "Alice" }, "2": { username: "Bob" } } },
-//     });
+  it("opens and closes edit modal", async () => {
+    mockAxiosInstance.get.mockResolvedValue({
+      data: { rows: [{ completedhikeid: 1, userid: 1, name: "Test Hike", date: "2025-09-28", timespan: "01:30:00" }] },
+    });
+    mockAxiosInstance.post.mockResolvedValue({
+      data: { userDatas: { "1": { username: "Alice" } } },
+    });
 
-//     render(React.createElement(Logbook));
+    render(<Logbook />);
 
-//     await waitFor(function () {
-//       expect(screen.getByText("Test Hike")).toBeInTheDocument();
-//     });
-//     expect(screen.getByText("Upcoming Hike")).toBeInTheDocument();
+    const completedSection = screen.getByText("Completed Hikes").closest("section");
+    await waitFor(() => within(completedSection).getByText("Test Hike"));
 
-//     fireEvent.click(screen.getByText("Test Hike"));
-//     expect(screen.getByText(/01:30:00/)).toBeInTheDocument();
-//   });
+    const hikeButton = within(completedSection).getByText("Test Hike");
+    fireEvent.click(hikeButton);
 
-//   it("opens and closes edit modal", async () => {
-//     axios.get.mockResolvedValue({
-//       data: {
-//         rows: [{ completedhikeid: 1, name: "Test Hike", date: "2025-09-28", timespan: "01:30:00" }],
-//       },
-//     });
-//     axios.post.mockResolvedValue({
-//       data: { userDatas: { "1": { username: "Alice" } } },
-//     });
+    const editButton = within(completedSection).getByText("Edit");
+    fireEvent.click(editButton);
 
-//     render(<Logbook />);
+    expect(screen.getByText(/Edit Hike/i)).toBeInTheDocument();
 
-//     const completedSection = screen.getByText("Completed Hikes").closest("section");
+    const cancelButton = screen.getByText("Cancel");
+    fireEvent.click(cancelButton);
 
-//     await waitFor(() => within(completedSection).getByText("Test Hike"));
+    expect(screen.queryByText(/Edit Hike/i)).not.toBeInTheDocument();
+  });
 
-//     const hikeButton = within(completedSection).getByText("Test Hike");
-//     fireEvent.click(hikeButton);
+  it("filters completed hikes by name", async () => {
+    mockAxiosInstance.get.mockImplementation((url) => {
+      if (url.includes("completed-hikes")) {
+        return Promise.resolve({
+          data: {
+            rows: [
+              { completedhikeid: 1, userid: 1, name: "Alpha Hike", date: "2025-09-28", timespan: "01:00:00" },
+            ],
+          },
+        });
+      }
+      if (url.includes("upcoming-hikes")) {
+        return Promise.resolve({
+          data: {
+            rows: [
+              { plannerid: 2, name: "Beta Hike", planned_at: "2025-10-01T10:00:00", has_started: false },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: { pendingHikes: [] } });
+    });
 
-//     const editButton = within(completedSection).getByText("Edit");
-//     fireEvent.click(editButton);
+    mockAxiosInstance.post.mockResolvedValue({
+      data: { userDatas: { "1": { username: "Alice" }, "2": { username: "Bob" } } },
+    });
 
-//     expect(screen.getByText(/Edit Timespan/i)).toBeInTheDocument();
+    render(<Logbook />);
+    await waitFor(() => screen.getByText("Alpha Hike"));
 
-//     const cancelButton = screen.getByText("Cancel");
-//     fireEvent.click(cancelButton);
+    const nameInput = screen.getByLabelText("name", { selector: 'input#name' });
+    fireEvent.change(nameInput, { target: { value: "Beta" } });
 
-//     expect(screen.queryByText(/Edit Timespan/i)).not.toBeInTheDocument();
-//   });
+    expect(screen.queryByText("Alpha Hike")).not.toBeInTheDocument();
+  });
 
-//   it("filters completed hikes by name", async () => {
-//     axios.get.mockImplementation((url) => {
-//       if (url.includes("completed-hikes")) {
-//         return Promise.resolve({
-//           data: {
-//             rows: [
-//               { completedhikeid: 1, name: "Alpha Hike", date: "2025-09-28", timespan: "01:00:00" },
-//             ],
-//           },
-//         });
-//       }
-//       if (url.includes("upcoming-hikes")) {
-//         return Promise.resolve({
-//           data: {
-//             rows: [
-//               { plannerid: 2, name: "Beta Hike", planned_at: "2025-10-01T10:00:00", has_started: false },
-//             ],
-//           },
-//         });
-//       }
-//       return Promise.resolve({ data: { pendingHikes: [] } });
-//     });
+  it("starts and stops upcoming hikes", async () => {
+    mockAxiosInstance.get.mockImplementation((url) => {
+      if (url.includes("upcoming-hikes")) {
+        return Promise.resolve({
+          data: {
+            rows: [
+              { plannerid: 2, name: "Test Hike", planned_at: "2025-10-01T10:00:00", has_started: false },
+            ],
+          },
+        });
+      }
+      if (url.includes("completed-hikes")) return Promise.resolve({ data: { rows: [] } });
+      return Promise.resolve({ data: { pendingHikes: [] } });
+    });
 
-//     axios.post.mockResolvedValue({
-//       data: {
-//         userDatas: { "1": { username: "Alice" }, "2": { username: "Bob" } },
-//       },
-//     });
+    mockAxiosInstance.post.mockImplementation((url) => {
+      if (url === "/start-hike") return Promise.resolve({ data: { success: true, planned_at: "2025-10-01T10:00:00" } });
+      if (url === "/stop-hike") return Promise.resolve({ data: { success: true } });
+      return Promise.resolve({ data: {} });
+    });
 
-//     render(<Logbook />);
+    render(<Logbook />);
 
-//     await waitFor(() => screen.getByText("Alpha Hike"));
+    const hikeButton = await screen.findByText("Test Hike");
+    fireEvent.click(hikeButton);
 
-//     const nameInput = screen.getByLabelText("name", { selector: 'input#name' });
-//     fireEvent.change(nameInput, { target: { value: "Beta" } });
+    const startButton = screen.getByText("Start");
+    fireEvent.click(startButton);
 
-//     expect(screen.queryByText("Alpha Hike")).not.toBeInTheDocument();
-//   });
+    const stopButton = await screen.findByText("Stop");
+    fireEvent.click(stopButton);
 
-//   it("starts and stops upcoming hikes", async () => {
-//     axios.get.mockImplementation((url) => {
-//       if (url.includes("upcoming-hikes")) {
-//         return Promise.resolve({
-//           data: {
-//             rows: [
-//               {
-//                 plannerid: 2,
-//                 name: "Test Hike",
-//                 planned_at: "2025-10-01T10:00:00",
-//                 has_started: false,
-//               },
-//             ],
-//           },
-//         });
-//       }
-//       if (url.includes("completed-hikes")) {
-//         return Promise.resolve({ data: { rows: [] } });
-//       }
-//       return Promise.resolve({ data: { pendingHikes: [] } });
-//     });
+    await waitFor(() => expect(screen.queryByText("Stop")).not.toBeInTheDocument());
+  });
 
-//     axios.post.mockImplementation((url) => {
-//       if (url === "/start-hike") {
-//         return Promise.resolve({
-//           data: { success: true, planned_at: "2025-10-01T10:00:00" },
-//         });
-//       }
-//       if (url === "/stop-hike") {
-//         return Promise.resolve({ data: { success: true } });
-//       }
-//       return Promise.resolve({ data: {} });
-//     });
+  it("accepts and declines pending invites", async () => {
+    mockAxiosInstance.get.mockResolvedValue({
+      data: {
+        rows: [],
+        pendingHikes: [
+          { hikeid: 1, name: "Invite Hike", madeby: 2, location: "Trail", difficulty: "Medium", duration: "01:00:00", description: "Test" },
+        ],
+      },
+    });
 
-//     render(<Logbook />);
+    mockAxiosInstance.post.mockResolvedValue({ data: { success: true, userDatas: { "2": { username: "Bob" } } } });
 
-//     const hikeButton = await screen.findByText("Test Hike");
-//     fireEvent.click(hikeButton);
+    render(<Logbook />);
 
-//     const startButton = screen.getByText("Start");
-//     fireEvent.click(startButton);
+    await waitFor(() => screen.getByText(/Invite from/));
 
-//     const stopButton = await screen.findByText("Stop");
-//     fireEvent.click(stopButton);
+    const inviteHeader = screen.getByText(/Invite from/);
+    fireEvent.click(inviteHeader);
 
-//     await waitFor(() =>
-//       expect(screen.queryByText("Stop")).not.toBeInTheDocument()
-//     );
-//   });
+    const inviteSection = inviteHeader.closest("section");
+    const acceptButton = within(inviteSection).getByText("Accept");
+    const declineButton = within(inviteSection).getByText("Decline");
 
-//   it("accepts and declines pending invites", async () => {
-//     axios.get.mockResolvedValue({
-//       data: {
-//         rows: [],
-//         pendingHikes: [
-//           {
-//             hikeid: 1,
-//             name: "Invite Hike",
-//             madeby: 2,
-//             location: "Trail",
-//             difficulty: "Medium",
-//             duration: "01:00:00",
-//             description: "Test",
-//           },
-//         ],
-//       },
-//     });
-//     axios.post.mockResolvedValue({ data: { success: true, userDatas: { "2": { username: "Bob" } } } });
-
-//     render(<Logbook />);
-
-//     await waitFor(() => screen.getByText(/Invite from/));
-
-//     const inviteHeader = screen.getByText(/Invite from/);
-//     fireEvent.click(inviteHeader);
-
-//     const inviteSection = inviteHeader.closest("section");
-//     const acceptButton = within(inviteSection).getByText("Accept");
-//     const declineButton = within(inviteSection).getByText("Decline");
-
-//     fireEvent.click(acceptButton);
-//     fireEvent.click(declineButton);
-//   });
-// });
+    fireEvent.click(acceptButton);
+    fireEvent.click(declineButton);
+  });
+});
