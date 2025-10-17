@@ -20,26 +20,33 @@ const mockFriends = [
 ];
 
 describe("PlanHike Component", () => {
+  let axiosMock;
+
   beforeEach(() => {
     useUserContext.mockReturnValue({ userID: mockUserID });
-    axios.create.mockReturnValue(axios);
 
-    axios.get.mockImplementation((url) => {
-      if (url === "/trails") return Promise.resolve({ data: { trails: mockHikes } });
-      if (url === `/friends/${mockUserID}`) return Promise.resolve({ data: { friends: mockFriends } });
-      return Promise.resolve({ data: {} });
-    });
+    // Mock axios.create to return an object with get/post mocked
+    axiosMock = {
+      get: jest.fn((url) => {
+        if (url === "/trails") return Promise.resolve({ data: { trails: mockHikes } });
+        if (url === `/friends/${mockUserID}`) return Promise.resolve({ data: { friends: mockFriends } });
+        return Promise.resolve({ data: {} });
+      }),
+      post: jest.fn(() => Promise.resolve({ data: { success: true } })),
+    };
 
-    axios.post.mockResolvedValue({ data: { success: true } });
+    axios.create.mockReturnValue(axiosMock);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test("renders header, filters, and hikes", async () => {
+  test("renders header and filters", async () => {
     render(<PlanHike />);
     expect(screen.getByText("Plan Hike")).toBeInTheDocument();
+
+    // Wait for hikes to render
     expect(await screen.findByText("Trail A")).toBeInTheDocument();
     expect(await screen.findByText("Trail B")).toBeInTheDocument();
 
@@ -50,17 +57,20 @@ describe("PlanHike Component", () => {
     });
   });
 
-  test("filters hikes by name", async () => {
+  test("filters hikes based on input", async () => {
     render(<PlanHike />);
+    await screen.findByText("Trail A");
+
     const nameFilter = screen.getByLabelText(/name/i);
     fireEvent.change(nameFilter, { target: { value: "Trail A" } });
-    expect(await screen.findByText("Trail A")).toBeInTheDocument();
+
+    expect(screen.getByText("Trail A")).toBeInTheDocument();
     expect(screen.queryByText("Trail B")).toBeNull();
   });
 
   test("opens and closes plan hike modal", async () => {
     render(<PlanHike />);
-    const trailToggle = await screen.findByText("Trail A");
+    const trailToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailToggle.closest("article");
     fireEvent.click(within(hikeCard).getByRole("button"));
 
@@ -70,15 +80,15 @@ describe("PlanHike Component", () => {
     const planModal = screen.getByText(/Plan Hike: Trail A/i).closest("section");
     expect(within(planModal).getByText(/Plan Hike: Trail A/i)).toBeInTheDocument();
 
-    fireEvent.click(within(planModal).getByText("Cancel"));
-    await waitFor(() => {
-      expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument();
-    });
+    const cancelButton = within(planModal).getByText("Cancel");
+    fireEvent.click(cancelButton);
+
+    await waitFor(() => expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument());
   });
 
-  test("prevents planning hike with past date", async () => {
+  test("validates date before planning hike", async () => {
     render(<PlanHike />);
-    const trailToggle = await screen.findByText("Trail A");
+    const trailToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailToggle.closest("article");
     fireEvent.click(within(hikeCard).getByRole("button"));
 
@@ -94,14 +104,13 @@ describe("PlanHike Component", () => {
 
     fireEvent.click(within(planModal).getByText("Plan Hike"));
 
-    await waitFor(() => {
-      expect(screen.getByText(/Plan Hike: Trail A/i)).toBeInTheDocument();
-    });
+    // Should still be visible because the date is invalid
+    await waitFor(() => expect(screen.getByText(/Plan Hike: Trail A/i)).toBeInTheDocument());
   });
 
   test("plans hike with future date", async () => {
     render(<PlanHike />);
-    const trailToggle = await screen.findByText("Trail A");
+    const trailToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailToggle.closest("article");
     fireEvent.click(within(hikeCard).getByRole("button"));
 
@@ -117,14 +126,12 @@ describe("PlanHike Component", () => {
 
     fireEvent.click(within(planModal).getByText("Plan Hike"));
 
-    await waitFor(() => {
-      expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument());
   });
 
-  test("invites friends", async () => {
+  test("invites friends correctly", async () => {
     render(<PlanHike />);
-    const trailToggle = await screen.findByText("Trail A");
+    const trailToggle = await screen.findByText("Trail A", { selector: "p" });
     const hikeCard = trailToggle.closest("article");
     fireEvent.click(within(hikeCard).getByRole("button"));
 
@@ -141,16 +148,15 @@ describe("PlanHike Component", () => {
     fireEvent.click(within(planModal).getByText("Invite"));
 
     const inviteModal = await screen.findByText("Invite Friends");
-    const aliceButton = within(inviteModal.closest("section")).getByText("Alice").closest("li").querySelector("button");
+    const inviteModalSection = inviteModal.closest("section");
 
+    const aliceButton = within(inviteModalSection).getByText("Alice").closest("li").querySelector("button");
     fireEvent.click(aliceButton);
     expect(aliceButton.textContent).toBe("Invited");
 
-    const planHikeButton = within(inviteModal.closest("section")).getByText("Plan Hike");
+    const planHikeButton = within(inviteModalSection).getByText("Plan Hike");
     fireEvent.click(planHikeButton);
 
-    await waitFor(() => {
-      expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument());
   });
 });
