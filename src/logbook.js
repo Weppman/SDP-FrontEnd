@@ -228,6 +228,21 @@ export default function Logbook() {
                       <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
                       <p><strong>Description:</strong> {hike.description}</p>
                       <p><strong>Planned At:</strong> {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}</p>
+
+                        {hike.coordinates && (
+                          <section className="mt-2 w-full h-64">
+                            <iframe
+                              title={`Map of ${hike.name}`}
+                              width="100%"
+                              height="100%"
+                              frameBorder="0"
+                              style={{ border: 0 }}
+                              src={`https://www.google.com/maps?q=${hike.coordinates[0]},${hike.coordinates[1]}&hl=en&z=16&output=embed`}
+                              allowFullScreen
+                            ></iframe>
+                          </section>
+                        )}
+
                       <div className="flex gap-2 mt-2">
                         <button onClick={() => handleAcceptInvite(hike.hikeid)} className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">Accept</button>
                         <button onClick={() => handleDeclineInvite(hike.hikeid)} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">Decline</button>
@@ -253,30 +268,61 @@ export default function Logbook() {
                   </button>
                   {expandedHike === hike.plannerid && (
                     <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col relative">
-                      <p><strong>Trail Name:</strong> {hike.name}</p>
-                      <p><strong>Location:</strong> {hike.location}</p>
-                      <p><strong>Difficulty:</strong> {hike.difficulty}</p>
-                      <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
-                      <p><strong>Description:</strong> {hike.description}</p>
-                      <p><strong>Planned At:</strong> {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}</p>
+                      {/* Info + Map side by side */}
+                      <div className="flex flex-col md:flex-row gap-4">
+                        {/* Left column: hike info */}
+                        <div className="flex-1">
+                          <p><strong>Trail Name:</strong> {hike.name}</p>
+                          <p><strong>Location:</strong> {hike.location}</p>
+                          <p><strong>Difficulty:</strong> {hike.difficulty}</p>
+                          <p>
+                            <strong>Duration:</strong>{" "}
+                            {typeof hike.duration === "object"
+                              ? formatTimespan(hike.duration)
+                              : hike.duration || "Unknown"}
+                          </p>
+                          <p><strong>Description:</strong> {hike.description}</p>
+                          <p>
+                            <strong>Planned At:</strong>{" "}
+                            {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}
+                          </p>
+                        </div>
 
-                      {/* Start / Stop button */}
-                      {hike.has_started
-                        ? <button
-                            onClick={() => handleStopHike(hike.plannerid)}
-                            className="mt-2 self-end px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Stop
-                          </button>
-                        : <button
-                            disabled={startingHikeId === hike.plannerid || hike.has_started}
-                            onClick={() => handleStartHike(hike.plannerid)}
-                            className="mt-2 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-                          >
-                            Start
-                          </button>
-                      }
+                        {/* Right column: map */}
+                        {hike.coordinates && (
+                          <div className="w-full md:w-1/2 h-40">
+                            <iframe
+                              title={`Map of ${hike.name}`}
+                              width="100%"
+                              height="100%"
+                              frameBorder="0"
+                              style={{ border: 0 }}
+                              src={`https://www.google.com/maps?q=${hike.coordinates.lat || hike.coordinates[0]},${hike.coordinates.lng || hike.coordinates[1]}&hl=en&z=16&output=embed`}
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Start / Stop button below both */}
+                      {hike.has_started ? (
+                        <button
+                          onClick={() => handleStopHike(hike.plannerid)}
+                          className="mt-4 self-end px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                        >
+                          Stop
+                        </button>
+                      ) : (
+                        <button
+                          disabled={startingHikeId === hike.plannerid || hike.has_started}
+                          onClick={() => handleStartHike(hike.plannerid)}
+                          className="mt-4 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                        >
+                          Start
+                        </button>
+                      )}
                     </section>
+
                   )}
                 </article>
               )) : <p className="p-3 text-gray-500">No upcoming hikes found</p>}
@@ -293,15 +339,43 @@ export default function Logbook() {
                   </button>
                   {expandedHike === hike.completedhikeid && (
                     <section className="p-3 bg-green-50 text-gray-700 text-sm flex flex-col relative">
-                      <p><strong>Trail Name:</strong> {hike.name}</p>
-                      <p><strong>Location:</strong> {hike.location}</p>
-                      <p><strong>Difficulty:</strong> {hike.difficulty}</p>
-                      <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
-                      <p><strong>Description:</strong> {hike.description}</p>
-                      <p><strong>Date Completed:</strong> {hike.date ? new Date(hike.date).toLocaleDateString() : "Unknown"}</p>
-                      <p><strong>Time Span:</strong> {formatTimespan(hike.timespan)}</p>
-                      <button onClick={() => openEditModal(hike)} className="mt-2 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Edit</button>
+                      <div className="flex flex-col md:flex-row gap-4">
+                        {/* Text info on the left */}
+                        <div className="flex-1">
+                          <p><strong>Trail Name:</strong> {hike.name}</p>
+                          <p><strong>Location:</strong> {hike.location}</p>
+                          <p><strong>Difficulty:</strong> {hike.difficulty}</p>
+                          <p><strong>Duration:</strong> {typeof hike.duration === "object" ? formatTimespan(hike.duration) : hike.duration || "Unknown"}</p>
+                          <p><strong>Description:</strong> {hike.description}</p>
+                          <p><strong>Date Completed:</strong> {hike.date ? new Date(hike.date).toLocaleDateString() : "Unknown"}</p>
+                          <p><strong>Time Span:</strong> {formatTimespan(hike.timespan)}</p>
+                        </div>
+
+                        {/* Map on the right */}
+                        {hike.coordinates && (
+                          <div className="w-full md:w-1/2 h-40">
+                            <iframe
+                              title={`Map of ${hike.name}`}
+                              width="100%"
+                              height="100%"
+                              frameBorder="0"
+                              style={{ border: 0 }}
+                              src={`https://www.google.com/maps?q=${hike.coordinates.lat || hike.coordinates[0]},${hike.coordinates.lng || hike.coordinates[1]}&hl=en&z=16&output=embed`}
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Edit button below both */}
+                      <button
+                        onClick={() => openEditModal(hike)}
+                        className="mt-4 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                      >
+                        Edit
+                      </button>
                     </section>
+
                   )}
                 </article>
               )) : <p className="p-3 text-gray-500">No completed hikes found</p>}
