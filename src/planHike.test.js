@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import PlanHike, { DurationPicker } from "./planHike";
 import axios from "axios";
 import { useUserContext } from "./context/userContext.js";
+import {DurationPicker} from "./planHike.js"
 
 jest.mock("axios");
 

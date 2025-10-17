@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useUserContext } from "./context/userContext.js";
 // DurationPicker component
-function DurationPicker({ value, onChange }) {
+export function DurationPicker({ value, onChange }) {
   const [hours, setHours] = React.useState(0);
   const [minutes, setMinutes] = React.useState(0);
   const [seconds, setSeconds] = React.useState(0);
