@@ -127,6 +127,15 @@ const openEditModal = (hike) => {
     setEditTimespan("");
   };
 
+  // Subtract hours from a Date string
+const subtractHours = (dateStr, hours = 2) => {
+  if (!dateStr) return "Unknown";
+  const date = new Date(dateStr);
+  date.setHours(date.getHours() - hours);
+  return date.toLocaleString(); // or .toLocaleDateString() if you only want date
+};
+
+
   const handleUpdateHike = async () => {
     if (!selectedHikeId) return;
 
@@ -356,7 +365,7 @@ const handleTogglePin = async (hike) => {
                           <p><strong>Description:</strong> {hike.description}</p>
                           <p>
                             <strong>Planned At:</strong>{" "}
-                            {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}
+                            {subtractHours(hike.planned_at, 2)}
                           </p>
                         </div>
 
