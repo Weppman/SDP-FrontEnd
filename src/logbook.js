@@ -39,6 +39,7 @@ export default function Logbook() {
       return {};
     }
   };
+  
 
   const fetchCompletedHikes = useCallback(async () => {
     if (!userID) return;
@@ -68,6 +69,7 @@ export default function Logbook() {
           ...h,
           plannerName: userDatas[h.plannerid]?.username || `User ${h.plannerid}`,
           has_started: h.has_started === true || h.has_started === 'true' || h.has_started === 1 || h.has_started === 't',
+          planned_at: subtractHours(h.planned_at, 2) // only here
         }))
       );
     } catch (err) {
@@ -132,19 +134,31 @@ const openEditModal = (hike) => {
  * Subtract hours from a server timestamp string and return formatted local string.
  * Handles YYYY-MM-DD HH:mm:ss timestamps consistently.
  */
+// Subtract hours from a server timestamp string and return formatted local string
   const subtractHours = (timestamp, hours = 2) => {
     if (!timestamp) return "Unknown";
 
-    // Replace space with 'T' to make it ISO 8601 compatible, then treat as UTC
-    let isoString = timestamp.replace(" ", "T") + "Z";
+    // Convert "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ss"
+    const isoString = timestamp.replace(" ", "T");
+
     const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "Invalid date";
 
-    // Subtract the hours
-    date.setUTCHours(date.getUTCHours() - hours);
+    // Subtract hours
+    date.setHours(date.getHours() - hours);
 
-    // Format to local string
-    return date.toLocaleString(); 
+    // Format as MM/DD/YYYY, hh:mm:ss AM/PM
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true
+    });
   };
+
 
 
 
@@ -166,12 +180,24 @@ const openEditModal = (hike) => {
 
 
   const handleStartHike = async (plannerId) => {
-    if (!plannerId || !userID || startingHikeId === plannerId) return;
+    if (!plannerId || !userID) return;
+
+    // Prevent starting a hike if any hike has already started
+    const alreadyStarted = upcomingHikes.some(h => h.has_started);
+    if (alreadyStarted) {
+      alert("You can only start one hike at a time.");
+      return;
+    }
+
     setStartingHikeId(plannerId);
     try {
       const res = await apiClient.post("/start-hike", { plannerId, userId: userID });
       if (!res.data.success) throw new Error(res.data.message || "Failed to start hike");
-      setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: true, planned_at: res.data.planned_at } : h));
+      setUpcomingHikes(prev => prev.map(h => 
+        h.plannerid === plannerId 
+          ? { ...h, has_started: true, planned_at: subtractHours(res.data.planned_at, 0) } 
+          : h
+      ));
     } catch (err) {
       console.error(err);
       setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: false } : h));
@@ -179,6 +205,7 @@ const openEditModal = (hike) => {
       setStartingHikeId(null);
     }
   };
+
 
   const handleStopHike = async (plannerId) => {
     if (!plannerId || !userID) return;
@@ -376,8 +403,7 @@ const handleTogglePin = async (hike) => {
                           </p>
                           <p><strong>Description:</strong> {hike.description}</p>
                           <p>
-                            <strong>Planned At:</strong>{" "}
-                            {subtractHours(hike.planned_at, 2)}
+                            <strong>Planned At:</strong>{hike.planned_at}
                           </p>
                         </div>
 
