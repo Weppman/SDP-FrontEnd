@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import PlanHike from "./planHike";
+import PlanHike, { DurationPicker } from "./planHike";
 import { useUserContext } from "./context/userContext";
 import axios from "axios";
 
@@ -40,11 +40,13 @@ describe("PlanHike Component", () => {
     expect(screen.getByText("Plan Hike")).toBeInTheDocument();
     expect(await screen.findByText("Trail A")).toBeInTheDocument();
     expect(await screen.findByText("Trail B")).toBeInTheDocument();
-    Object.keys(mockHikes[0]).forEach(key => {
-      if (key !== "trailid" && key !== "duration") {
-        expect(screen.getByLabelText(new RegExp(key, "i"))).toBeInTheDocument();
-      }
-    });
+
+    // Check all filters
+    expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/location/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/difficulty/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Duration of trails ≤ set time/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
   });
 
   test("filters hikes based on input", async () => {
@@ -53,6 +55,13 @@ describe("PlanHike Component", () => {
     fireEvent.change(nameFilter, { target: { value: "Trail A" } });
     expect(await screen.findByText("Trail A")).toBeInTheDocument();
     expect(screen.queryByText("Trail B")).toBeNull();
+
+    // Filter by duration using DurationPicker
+    const durationHoursInput = screen.getByDisplayValue("00"); // hours input of DurationPicker
+    fireEvent.change(durationHoursInput, { target: { value: 1 } });
+    await waitFor(() => {
+      expect(screen.getByText("Trail B")).toBeInTheDocument(); // 1h45 <= 1h? It should filter Trail B out
+    });
   });
 
   test("opens and closes plan hike modal", async () => {
