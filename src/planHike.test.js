@@ -13,13 +13,21 @@ jest.mock("./context/userContext.js", () => ({
 }));
 
 describe("PlanHike Component", () => {
+  let mockGet, mockPost;
+
   beforeEach(() => {
     useUserContext.mockReturnValue(mockUserContext);
-    axios.create = jest.fn(() => axios);
-    axios.get.mockResolvedValue({
-      data: { trails: [{ trailid: 1, name: "Hike1", duration: "01:00:00", difficulty: 3 }] },
+
+    // Mock axios instance
+    mockGet = jest.fn().mockResolvedValue({
+      data: { trails: [{ trailid: 1, name: "Hike1", duration: "01:00:00", difficulty: 3 }] }
     });
-    axios.post.mockResolvedValue({ data: { success: true } });
+    mockPost = jest.fn().mockResolvedValue({ data: { success: true } });
+
+    axios.create.mockReturnValue({
+      get: mockGet,
+      post: mockPost
+    });
   });
 
   test("renders filters and hikes list", async () => {
@@ -55,22 +63,24 @@ describe("PlanHike Component", () => {
     fireEvent.click(screen.getByText(/Hike1/i));
     fireEvent.click(screen.getByText(/Plan Hike/i));
 
-    // Set a valid future date
-    const input = screen.getByDisplayValue("");
+    const input = screen.getByLabelText(/Planned Date/i) || screen.getByDisplayValue("");
     fireEvent.change(input, { target: { value: "2099-01-01T10:00" } });
-    fireEvent.click(screen.getByText(/Plan Hike$/i));
 
+    fireEvent.click(screen.getByText(/^Plan Hike$/i));
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalled();
+      expect(mockPost).toHaveBeenCalled();
     });
   });
 
   test("opens invite modal and toggles friends", async () => {
-    axios.get.mockResolvedValueOnce({
-      data: { trails: [{ trailid: 1, name: "Hike1", duration: "01:00:00", difficulty: 3 }] },
-    }).mockResolvedValueOnce({
-      data: { friends: [{ id: "f1", name: "Alice" }, { id: "f2", name: "Bob" }] },
-    });
+    // First call returns trails, second call returns friends
+    mockGet
+      .mockResolvedValueOnce({
+        data: { trails: [{ trailid: 1, name: "Hike1", duration: "01:00:00", difficulty: 3 }] }
+      })
+      .mockResolvedValueOnce({
+        data: { friends: [{ id: "f1", name: "Alice" }, { id: "f2", name: "Bob" }] }
+      });
 
     render(<PlanHike />);
     await waitFor(() => screen.getByText(/Hike1/i));
@@ -87,9 +97,11 @@ describe("PlanHike Component", () => {
     let value = "";
     render(<DurationPicker value="03:00:00" onChange={(v) => value = v} />);
     const inputs = screen.getAllByRole("spinbutton");
+
     fireEvent.change(inputs[0], { target: { value: 1 } });
     fireEvent.change(inputs[1], { target: { value: 2 } });
     fireEvent.change(inputs[2], { target: { value: 3 } });
+
     expect(value).toBe("01:02:03");
   });
 
