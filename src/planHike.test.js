@@ -85,7 +85,7 @@ describe("PlanHike Component", () => {
 
   test("DurationPicker works correctly", () => {
     let value = "";
-    render(<DurationPicker value="00:00:00" onChange={(v) => value = v} />);
+    render(<DurationPicker value="03:00:00" onChange={(v) => value = v} />);
     const inputs = screen.getAllByRole("spinbutton");
     fireEvent.change(inputs[0], { target: { value: 1 } });
     fireEvent.change(inputs[1], { target: { value: 2 } });
