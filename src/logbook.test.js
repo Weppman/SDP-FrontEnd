@@ -240,15 +240,19 @@ describe("Logbook Additional Coverage", () => {
     render(<Logbook />);
 
     await waitFor(() => {
-      // Could check for a fallback UI or just ensure no crash
+      // Ensure the component still renders headers even after error
       expect(screen.getByText(/Completed Hikes/i)).toBeInTheDocument();
       expect(screen.getByText(/Upcoming Hikes/i)).toBeInTheDocument();
     });
   });
 
-  it("opens the edit modal but submits changes correctly", async () => {
+  it("opens the edit modal and submits changes correctly", async () => {
     mockAxiosInstance.get.mockResolvedValue({
-      data: { rows: [{ completedhikeid: 1, userid: 1, name: "Editable Hike", date: "2025-09-28", timespan: "01:30:00" }] },
+      data: {
+        rows: [
+          { completedhikeid: 1, userid: 1, name: "Editable Hike", date: "2025-09-28", timespan: "01:30:00" },
+        ],
+      },
     });
     mockAxiosInstance.post.mockResolvedValue({
       data: { success: true, userDatas: { "1": { username: "Alice" } } },
@@ -266,23 +270,33 @@ describe("Logbook Additional Coverage", () => {
     fireEvent.click(saveButton);
 
     // Modal should close after save
-    await waitFor(() => expect(screen.queryByText(/Edit Hike/i)).not.toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.queryByText(/Edit Hike/i)).not.toBeInTheDocument();
+    });
   });
 
   it("handles pending invites with missing user data", async () => {
     mockAxiosInstance.get.mockResolvedValue({
       data: {
         rows: [],
-        pendingHikes: [{ hikeid: 1, name: "Invite Hike", madeby: 999, location: "Trail", difficulty: "Medium", duration: "01:00:00", description: "Test" }],
+        pendingHikes: [
+          {
+            hikeid: 1,
+            name: "Invite Hike",
+            madeby: 999,
+            location: "Trail",
+            difficulty: "Medium",
+            duration: "01:00:00",
+            description: "Test",
+          },
+        ],
       },
     });
     mockAxiosInstance.post.mockResolvedValue({ data: { success: true, userDatas: {} } });
 
     render(<Logbook />);
 
-    await waitFor(() => screen.getByText(/Invite from/i));
-
-    const inviteHeader = screen.getByText(/Invite from/i);
+    const inviteHeader = await screen.findByText(/Invite from/i);
     fireEvent.click(inviteHeader);
 
     const inviteSection = inviteHeader.closest("section");
@@ -293,4 +307,5 @@ describe("Logbook Additional Coverage", () => {
     fireEvent.click(declineButton);
   });
 });
+
 
