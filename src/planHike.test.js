@@ -1,114 +1,106 @@
 // planHike.test.js
 import React from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
-import PlanHike from "./planHike";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import PlanHike, { DurationPicker } from "./planHike";
+import axios from "axios";
+import { useUserContext } from "./context/userContext.js";
 
-// Mock hikes data based on your trail_table
-const mockHikes = [
-  {
-    trailid: 1,
-    name: "Hike1",
-    location: "0000000",
-    difficulty: 0,
-    duration: "00:00:00",
-    description: "------",
-    achievements: [0, 1],
-    coordinates: [-28.7469, 28.9093],
-  },
-  {
-    trailid: 2,
-    name: "Hike2",
-    location: "111",
-    difficulty: 1,
-    duration: "00:00:00",
-    description: "Test",
-    achievements: [],
-    coordinates: [],
-  },
-  {
-    trailid: 3,
-    name: "Hike3",
-    location: "22222",
-    difficulty: 2,
-    duration: "00:00:00",
-    description: "Test2",
-    achievements: [],
-    coordinates: [],
-  },
-];
+jest.mock("axios");
 
-// Mock PlanHike to accept hikes prop (or mock API if needed)
-jest.mock("./planHike", () => (props) => {
-  const React = require("react");
-  return (
-    <div>
-      <h1>Plan Hike</h1>
-      <section>
-        {props.hikes?.length
-          ? props.hikes.map((hike) => (
-              <article key={hike.trailid}>
-                <p>{hike.name}</p>
-                <button>Plan Hike</button>
-              </article>
-            ))
-          : <p>No hikes found</p>}
-      </section>
-    </div>
-  );
-});
+const mockUserContext = { userID: "123" };
+jest.mock("./context/userContext.js", () => ({
+  useUserContext: jest.fn(),
+}));
 
 describe("PlanHike Component", () => {
   beforeEach(() => {
-    render(<PlanHike hikes={mockHikes} />);
+    useUserContext.mockReturnValue(mockUserContext);
+    axios.create = jest.fn(() => axios);
+    axios.get.mockResolvedValue({
+      data: { trails: [{ trailid: 1, name: "Hike1", duration: "01:00:00", difficulty: 3 }] },
+    });
+    axios.post.mockResolvedValue({ data: { success: true } });
   });
 
-  test("renders header and hikes", async () => {
-    expect(screen.getByText("Plan Hike")).toBeInTheDocument();
-    expect(await screen.findByText("Hike1")).toBeInTheDocument();
-    expect(await screen.findByText("Hike2")).toBeInTheDocument();
-    expect(await screen.findByText("Hike3")).toBeInTheDocument();
+  test("renders filters and hikes list", async () => {
+    render(<PlanHike />);
+    expect(screen.getByText(/Filters/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Hike1/i)).toBeInTheDocument();
+    });
   });
 
-  test("filters hikes based on name", async () => {
-    const nameFilter = screen.getByLabelText(/name/i);
-    fireEvent.change(nameFilter, { target: { value: "Hike1" } });
-
-    expect(await screen.findByText("Hike1")).toBeInTheDocument();
-    expect(screen.queryByText("Hike2")).toBeNull();
-    expect(screen.queryByText("Hike3")).toBeNull();
+  test("expands hike details when clicked", async () => {
+    render(<PlanHike />);
+    await waitFor(() => screen.getByText(/Hike1/i));
+    fireEvent.click(screen.getByText(/Hike1/i));
+    expect(screen.getByText(/Location:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Duration:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Description:/i)).toBeInTheDocument();
   });
 
   test("opens and closes plan hike modal", async () => {
-    const trailToggle = await screen.findByText("Hike1");
-    const hikeCard = trailToggle.closest("article");
-    fireEvent.click(within(hikeCard).getByRole("button"));
-
-    expect(await within(hikeCard).findByText("Plan Hike")).toBeInTheDocument();
+    render(<PlanHike />);
+    await waitFor(() => screen.getByText(/Hike1/i));
+    fireEvent.click(screen.getByText(/Hike1/i));
+    fireEvent.click(screen.getByText(/Plan Hike/i));
+    expect(screen.getByText(/Plan Hike: Hike1/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Cancel/i));
+    expect(screen.queryByText(/Plan Hike: Hike1/i)).not.toBeInTheDocument();
   });
 
-  test("prevents planning with past date", async () => {
-    const trailToggle = await screen.findByText("Hike1");
-    const hikeCard = trailToggle.closest("article");
-    fireEvent.click(within(hikeCard).getByRole("button"));
+  test("handles planning a hike", async () => {
+    render(<PlanHike />);
+    await waitFor(() => screen.getByText(/Hike1/i));
+    fireEvent.click(screen.getByText(/Hike1/i));
+    fireEvent.click(screen.getByText(/Plan Hike/i));
 
-    const planButton = await within(hikeCard).findByText("Plan Hike");
-    fireEvent.click(planButton);
+    // Set a valid future date
+    const input = screen.getByDisplayValue("");
+    fireEvent.change(input, { target: { value: "2099-01-01T10:00" } });
+    fireEvent.click(screen.getByText(/Plan Hike$/i));
 
-    // Here you can check for an error message or disabled state for past date
-    // Example:
-    // expect(await screen.findByText(/cannot plan past date/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalled();
+    });
   });
 
-  test("plans hike with future date", async () => {
-    const trailToggle = await screen.findByText("Hike1");
-    const hikeCard = trailToggle.closest("article");
-    fireEvent.click(within(hikeCard).getByRole("button"));
+  test("opens invite modal and toggles friends", async () => {
+    axios.get.mockResolvedValueOnce({
+      data: { trails: [{ trailid: 1, name: "Hike1", duration: "01:00:00", difficulty: 3 }] },
+    }).mockResolvedValueOnce({
+      data: { friends: [{ id: "f1", name: "Alice" }, { id: "f2", name: "Bob" }] },
+    });
 
-    const planButton = await within(hikeCard).findByText("Plan Hike");
-    fireEvent.click(planButton);
+    render(<PlanHike />);
+    await waitFor(() => screen.getByText(/Hike1/i));
+    fireEvent.click(screen.getByText(/Hike1/i));
+    fireEvent.click(screen.getByText(/Invite/i));
 
-    // Here you can check for confirmation or modal close
-    // Example:
-    // expect(await screen.findByText(/hike planned successfully/i)).toBeInTheDocument();
+    await waitFor(() => screen.getByText(/Invite Friends/i));
+    expect(screen.getByText(/Alice/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Invite/i));
+    expect(screen.getByText(/Invited/i)).toBeInTheDocument();
+  });
+
+  test("DurationPicker works correctly", () => {
+    let value = "";
+    render(<DurationPicker value="00:00:00" onChange={(v) => value = v} />);
+    const inputs = screen.getAllByRole("spinbutton");
+    fireEvent.change(inputs[0], { target: { value: 1 } });
+    fireEvent.change(inputs[1], { target: { value: 2 } });
+    fireEvent.change(inputs[2], { target: { value: 3 } });
+    expect(value).toBe("01:02:03");
+  });
+
+  test("filters by name, location, difficulty, duration, description", async () => {
+    render(<PlanHike />);
+    await waitFor(() => screen.getByText(/Hike1/i));
+    fireEvent.change(screen.getByLabelText(/Name/i), { target: { value: "Hike1" } });
+    fireEvent.change(screen.getByLabelText(/Location/i), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText(/Difficulty/i), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText(/Duration of trails ≤ set time/i), { target: { value: "01:00:00" } });
+    fireEvent.change(screen.getByLabelText(/Description/i), { target: { value: "" } });
+    expect(screen.getByText(/Hike1/i)).toBeInTheDocument();
   });
 });
