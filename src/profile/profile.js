@@ -16,29 +16,6 @@ import Stats from "./stats";
 import ViewProfileButton from "./viewProfile";
 import { useParams } from "react-router-dom";
 
-// Global goals hardcoded for now
-// Sample hikes for pinning
-const sampleHikes = [
-  {
-    id: 1,
-    title: "Table Mountain",
-    distance: 12,
-    pinned: true,
-  },
-  {
-    id: 2,
-    title: "Lion's Head Sunrise",
-    distance: 8,
-    pinned: true,
-  },
-  {
-    id: 3,
-    title: "Drakensberg Hike",
-    distance: 15,
-    pinned: true,
-  },
-];
-
 export default function Profile() {
   const { userID: routeUserID } = useParams(); // <-- get userID from URL
   const { userID: loggedInUserID } = useUserContext(); // optional
@@ -60,7 +37,7 @@ export default function Profile() {
     description: "",
   });
   const [goalToDelete, setGoalToDelete] = useState(null);
-  const [hikes, setHikes] = useState(sampleHikes);
+  const [hikes, setHikes] = useState([]);
   const [globalGoals, setGlobalGoals] = useState([]);
   const [loadingGlobalGoals, setLoadingGlobalGoals] = useState(true);
   const [completedGlobalGoals, setCompletedGlobalGoals] = useState([]);
@@ -104,15 +81,15 @@ export default function Profile() {
         const myFollowingRes = await fetch(
           `${API_URL}/profile/${loggedInUserID}/friends`,
           {
-            headers: { 'x-api-key': apiKey }
-          }
+            headers: { "x-api-key": apiKey },
+          },
         );
         const myFollowingData = await myFollowingRes.json();
         setMyFollowing(myFollowingData);
 
         // 2️⃣ Then fetch profile friends
         const profileRes = await fetch(`${API_URL}/profile/${userID}/friends`, {
-          headers: { 'x-api-key': apiKey }
+          headers: { "x-api-key": apiKey },
         });
         const profileData = await profileRes.json();
         setProfileFriends(profileData);
@@ -131,9 +108,13 @@ export default function Profile() {
 
     const fetchProfileUser = async () => {
       try {
-        const res = await axios.post(`${API_URL}/uid`, { uidArr: [userID] }, {
-          headers: { 'x-api-key': apiKey }
-        });
+        const res = await axios.post(
+          `${API_URL}/uid`,
+          { uidArr: [userID] },
+          {
+            headers: { "x-api-key": apiKey },
+          },
+        );
         setProfileUser(res.data.userDatas[userID]);
       } catch (err) {
         console.error("Error fetching profile user:", err);
@@ -151,7 +132,7 @@ export default function Profile() {
       setLoadingGoals(true);
       try {
         const res = await axios.get(`${API_URL}/profile/goals/${userID}`, {
-          headers: { 'x-api-key': apiKey }
+          headers: { "x-api-key": apiKey },
         });
         const goals = res.data.map((g) => ({
           id: g.id,
@@ -184,8 +165,8 @@ export default function Profile() {
         const res = await axios.get(
           `${API_URL}/profile/global-goals/${userID}`,
           {
-            headers: { 'x-api-key': apiKey }
-          }
+            headers: { "x-api-key": apiKey },
+          },
         );
         setGlobalGoals(res.data);
       } catch (err) {
@@ -208,8 +189,8 @@ export default function Profile() {
         const res = await axios.get(
           `${API_URL}/profile/completed-hikes/${userID}`,
           {
-            headers: { 'x-api-key': apiKey }
-          }
+            headers: { "x-api-key": apiKey },
+          },
         );
         setCompletedHikesData(res.data);
       } catch (err) {
@@ -222,6 +203,28 @@ export default function Profile() {
 
     fetchCompletedHikes();
   }, [userID]);
+  useEffect(() => {
+    if (!userID) return;
+
+    const fetchPinnedHikes = async () => {
+      setLoadingHikes(true);
+      try {
+        const res = await axios.get(`${API_URL}/pinned-hikes/${userID}`, {
+          headers: { "x-api-key": apiKey },
+        });
+
+        // Extract the array
+        setHikes(res.data.pinnedHikes || []);
+      } catch (err) {
+        console.error("Error fetching pinned hikes:", err);
+        setHikes([]);
+      } finally {
+        setLoadingHikes(false);
+      }
+    };
+
+    fetchPinnedHikes();
+  }, [userID]);
 
   useEffect(() => {
     if (!userID) return;
@@ -232,8 +235,8 @@ export default function Profile() {
         const res = await axios.get(
           `${API_URL}/profile/completed-global/${userID}`,
           {
-            headers: { 'x-api-key': apiKey }
-          }
+            headers: { "x-api-key": apiKey },
+          },
         );
         setCompletedGlobalGoals(res.data.goals);
       } catch (err) {
@@ -256,8 +259,8 @@ export default function Profile() {
         const res = await axios.get(
           `${API_URL}/profile/completed-personal/${userID}`,
           {
-            headers: { 'x-api-key': apiKey }
-          }
+            headers: { "x-api-key": apiKey },
+          },
         );
         setCompletedPersonalGoals(res.data.goals);
       } catch (err) {
@@ -271,9 +274,25 @@ export default function Profile() {
     fetchCompletedPersonal();
   }, [userID]);
 
-  // Toggle pin/unpin a hike
-  const togglePin = (id) => {
-    setHikes(hikes.map((h) => (h.id === id ? { ...h, pinned: !h.pinned } : h)));
+  const handleUnpinHike = async (completedHikeId) => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/unpin-hike/${completedHikeId}`,
+        {},
+        {
+          headers: { "x-api-key": apiKey },
+        },
+      );
+
+      if (res.data.success) {
+        // Update local state to remove or mark as unpinned
+        setHikes((prevHikes) =>
+          prevHikes.filter((h) => h.completedhikeid !== completedHikeId),
+        );
+      }
+    } catch (err) {
+      console.error("Error unpinning hike:", err);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -294,11 +313,11 @@ export default function Profile() {
           title: newGoal.title,
           description: newGoal.description,
         },
-        { 
-          headers: { 
+        {
+          headers: {
             "Content-Type": "application/json",
-            'x-api-key': apiKey
-          } 
+            "x-api-key": apiKey,
+          },
         },
       );
 
@@ -332,11 +351,11 @@ export default function Profile() {
           title: editingGoal.title,
           description: editingGoal.description,
         },
-        { 
-          headers: { 
+        {
+          headers: {
             "Content-Type": "application/json",
-            'x-api-key': apiKey
-          } 
+            "x-api-key": apiKey,
+          },
         },
       );
 
@@ -368,9 +387,9 @@ export default function Profile() {
       const res = await axios.delete(
         `${API_URL}/profile/edit-goal/${goalToDelete.id}/${userID}`,
         {
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            'x-api-key': apiKey
+            "x-api-key": apiKey,
           },
         },
       );
@@ -410,9 +429,9 @@ export default function Profile() {
     try {
       await fetch(`${API_URL}/follow/${friendId}`, {
         method: "DELETE",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          'x-api-key': apiKey
+          "x-api-key": apiKey,
         },
         credentials: "include",
         body: JSON.stringify({ followerId: loggedInUserID }),
@@ -449,9 +468,9 @@ export default function Profile() {
         // Unfollow
         await fetch(`${API_URL}/follow/${profileId}`, {
           method: "DELETE",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            'x-api-key': apiKey
+            "x-api-key": apiKey,
           },
           credentials: "include",
           body: JSON.stringify({ followerId: loggedInUserID }),
@@ -467,9 +486,9 @@ export default function Profile() {
         // Follow
         await fetch(`${API_URL}/follow/${profileId}`, {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            'x-api-key': apiKey
+            "x-api-key": apiKey,
           },
           credentials: "include",
           body: JSON.stringify({ followerId: loggedInUserID }),
@@ -496,11 +515,11 @@ export default function Profile() {
       const res = await axios.put(
         `${API_URL}/profile/mark-done/${goalId}/${userID}`,
         {},
-        { 
-          headers: { 
+        {
+          headers: {
             "Content-Type": "application/json",
-            'x-api-key': apiKey
-          } 
+            "x-api-key": apiKey,
+          },
         },
       );
 
@@ -551,9 +570,9 @@ export default function Profile() {
             />
           </fieldset>
         ) : (
-          <div className="flex flex-col">
-            <h3 className="flex items-center space-x-2 text-lg font-bold">
-              <span>{goal.title}</span>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <h3 className="flex flex-wrap items-center gap-2 space-x-2 text-lg font-bold">
+              <span className="overflow-hidden break-words">{goal.title}</span>
               {showTag && goal.source && (
                 <span
                   className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -567,7 +586,9 @@ export default function Profile() {
               )}
             </h3>
             {goal.description && (
-              <p className="text-sm text-gray-600">{goal.description}</p>
+              <p className="line-clamp-2 overflow-hidden break-words text-sm text-gray-600">
+                {goal.description}
+              </p>
             )}
           </div>
         )}
@@ -754,7 +775,6 @@ export default function Profile() {
             <h1 className="text-2xl font-bold text-gray-800">
               {profileUser?.username || "Some Person"}
             </h1>
-            <p className="text-gray-600">Avid hiker & goal achiever</p>
             <p className="mt-1 text-sm text-gray-500">
               {userGoals.filter((g) => g.current < g.target).length} personal
               goals • {hikes.length} hikes pinned • {profileFriends.length}{" "}
@@ -782,26 +802,46 @@ export default function Profile() {
           <h2 className="text-2xl font-semibold text-gray-800">Pinned Hikes</h2>
           {loadingHikes ? (
             <p className="text-gray-600">Loading hikes...</p>
-          ) : hikes.filter((h) => h.pinned).length ? (
+          ) : hikes.length ? (
             <ul className="space-y-2">
-              {hikes
-                .filter((h) => h.pinned)
-                .map((hike) => (
-                  <li
-                    key={hike.id}
-                    className="flex items-center justify-between rounded-lg bg-green-200 p-4 shadow"
+              {hikes.map((hike) => (
+                <li
+                  key={hike.completedhikeid}
+                  className="flex items-center justify-between rounded-lg bg-green-200 p-4 shadow"
+                >
+                  <div>
+                    {hike.trailname && (
+                      <h3 className="font-semibold text-gray-800">
+                        {hike.trailname}
+                      </h3>
+                    )}
+                    <p className="text-sm text-gray-600">
+                      {hike.location && <>Location: {hike.location} • </>}
+                      {hike.difficulty !== null && (
+                        <>Difficulty: {hike.difficulty} • </>
+                      )}
+                      {hike.duration && <>Duration: {hike.duration} • </>}
+                      {hike.timespan && <>Timespan: {hike.timespan}</>}
+                    </p>
+                    {hike.hikenotes && (
+                      <p className="text-sm text-gray-600">
+                        Notes: {hike.hikenotes}
+                      </p>
+                    )}
+                    {hike.date && (
+                      <p className="text-sm text-gray-500">
+                        Completed on: {new Date(hike.date).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleUnpinHike(hike.completedhikeid)}
+                    className="text-yellow-600 hover:underline"
                   >
-                    <span>
-                      {hike.title} ({hike.distance} km)
-                    </span>
-                    <button
-                      onClick={() => togglePin(hike.id)}
-                      className="text-yellow-600 hover:underline"
-                    >
-                      📌
-                    </button>
-                  </li>
-                ))}
+                    📌
+                  </button>
+                </li>
+              ))}
             </ul>
           ) : (
             <p className="text-gray-600">No hikes pinned yet.</p>

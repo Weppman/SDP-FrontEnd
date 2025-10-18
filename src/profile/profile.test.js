@@ -66,35 +66,6 @@ describe("Profile Component", () => {
     expect(screen.getByTestId("global-goals-count")).toHaveTextContent("0");
   });
 
-  test("allows toggling pinned hikes", async () => {
-    render(<Profile />);
-
-    // Wait for a pinned hike to appear
-    expect(await screen.findByText(/Table Mountain/i)).toBeInTheDocument();
-
-    // Find the pin button for Table Mountain
-    let pinButton = screen.getAllByText("📌")[0];
-    expect(pinButton).toBeInTheDocument();
-
-    // Click the pin button to unpin
-    fireEvent.click(pinButton);
-
-    // Table Mountain should no longer be in the pinned hikes list
-    await waitFor(() =>
-      expect(screen.queryByText(/Table Mountain/i)).not.toBeInTheDocument(),
-    );
-
-    // Find the pin button again for re-pinning (simulate another pinned hike)
-    // Here we just toggle another hike to test toggle functionality
-    pinButton = screen.getAllByText("📌")[0];
-    fireEvent.click(pinButton);
-
-    // Check that some pinned hike appears again
-    await waitFor(() =>
-      expect(screen.getAllByText("📌").length).toBeGreaterThan(0),
-    );
-  });
-
   test("stats tab renders Stats mock even with empty data", async () => {
     // Mock axios calls for global and personal goals
     axios.post.mockResolvedValue({ data: { rows: [] } });
@@ -272,12 +243,6 @@ describe("Profile Component", () => {
       expect(screen.getByText("New Goal")).toBeInTheDocument(),
     );
 
-    // 4️⃣ Toggle pin/unpin hike
-    const pinButton = screen.getAllByText("📌")[0];
-    fireEvent.click(pinButton);
-    await waitFor(() =>
-      expect(screen.queryByText(/Table Mountain/)).not.toBeInTheDocument(),
-    );
     // 6️⃣ Switch to stats tab
     fireEvent.click(screen.getByRole("button", { name: /Statistics/i }));
     expect(screen.getByText(/Stats Mock/i)).toBeInTheDocument();

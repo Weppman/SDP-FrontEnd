@@ -37,7 +37,7 @@ export default function SearchUsersUI() {
         {
           credentials: "include",
           headers: { "x-api-key": apiKey },
-        }
+        },
       );
       const data = await res.json();
       setSuggestedUsers(data.users || []);
@@ -65,11 +65,11 @@ export default function SearchUsersUI() {
         {
           credentials: "include",
           headers: { "x-api-key": apiKey },
-        }
+        },
       );
       const data = await res.json();
       const filteredResults = (data.users || []).filter(
-        (user) => user.id !== userID
+        (user) => user.id !== userID,
       );
       setResults(filteredResults);
     } catch (err) {
@@ -126,7 +126,11 @@ export default function SearchUsersUI() {
   const renderAvatar = (user) => (
     <div className="h-16 w-16 overflow-hidden rounded-full bg-gray-200">
       {user.avatar ? (
-        <img src={user.avatar} alt={user.username} className="h-full w-full object-cover" />
+        <img
+          src={user.avatar}
+          alt={user.username}
+          className="h-full w-full object-cover"
+        />
       ) : (
         <span className="flex h-full w-full items-center justify-center text-gray-500">
           {user.username[0].toUpperCase()}
