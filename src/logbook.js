@@ -47,9 +47,14 @@ export default function Logbook() {
     try {
       const res = await apiClient.get(`/completed-hikes/${userID}`);
       const rows = res.data.rows || [];
+      console.log("Completed hikes raw:", rows.map(h => h.pinnedhikes));
       const userDatas = await fetchUserData(rows.map(h => h.userid));
       setCompletedHikes(
-        rows.map(h => ({ ...h, plannerName: userDatas[h.userid]?.username || `User ${h.userid}` }))
+        rows.map(h => ({
+          ...h,
+          pinnedhikes: Boolean(h.pinnedhikes),
+          plannerName: userDatas[h.userid]?.username || `User ${h.userid}`
+        }))
       );
     } catch (err) {
       console.error(err);
@@ -257,6 +262,13 @@ const handleTogglePin = async (hike) => {
     return;
   }
 
+  // Optimistically update local state
+  setCompletedHikes(prev => 
+    prev.map(h => 
+      h.completedhikeid === hike.completedhikeid ? { ...h, pinnedhikes: !h.pinnedhikes } : h
+    )
+  );
+
   try {
     // Call backend API
     await apiClient.post("/pin-completed-hike", { 
@@ -264,27 +276,18 @@ const handleTogglePin = async (hike) => {
       pin: !hike.pinnedhikes,
       userId: userID
     });
-
-
-    // Update local state to reflect new pinned status
-    setCompletedHikes(prev => 
-      prev.map(h => 
-        h.completedhikeid === hike.completedhikeid ? { ...h, pinnedhikes: !h.pinnedhikes } : h
-      )
-    );
   } catch (err) {
     console.error("Failed to toggle pin:", err);
-    // Log additional details if available
-    if (err.response) {
-      console.error("Server response status:", err.response.status);
-      console.error("Server response data:", err.response.data);
-    } else if (err.request) {
-      console.error("No response received:", err.request);
-    } else {
-      console.error("Error message:", err.message);
-    }
+
+    // Rollback UI if backend fails
+    setCompletedHikes(prev => 
+      prev.map(h => 
+        h.completedhikeid === hike.completedhikeid ? { ...h, pinnedhikes: hike.pinnedhikes } : h
+      )
+    );
   }
 };
+
 
 
 
