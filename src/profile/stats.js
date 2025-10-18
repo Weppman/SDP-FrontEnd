@@ -299,6 +299,7 @@ export default function Stats({
         (groupedData[month][h.trailName] || 0) + 1;
     });
 
+    // 20 distinct colors
     const palette = [
       "#34d399",
       "#0061fdff",
@@ -308,7 +309,20 @@ export default function Stats({
       "#ff0783ff",
       "#ff7301ff",
       "#05d5faff",
+      "#8b5cf6",
+      "#f97316",
+      "#10b981",
+      "#ec4899",
+      "#14b8a6",
+      "#e11d48",
+      "#0ea5e9",
+      "#fde68a",
+      "#9333ea",
+      "#facc15",
+      "#d946ef",
+      "#84cc16",
     ];
+
     const monthNodes = [
       {
         id: "center",

@@ -13,8 +13,11 @@ export default function Logbook() {
   const [upcomingFilters, setUpcomingFilters] = useState({ name: "", date: "" });
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTimespan, setEditTimespan] = useState("");
+  const [editHikeNotes, setEditHikeNotes] = useState("");
   const [selectedHikeId, setSelectedHikeId] = useState(null);
   const [startingHikeId, setStartingHikeId] = useState(null);
+  const [confirmDeleteHikeId, setConfirmDeleteHikeId] = useState(null);
+
 
   const API_URL = "https://sdp-backend-production.up.railway.app";
   const apiKey = process.env.REACT_APP_API_KEY;
@@ -36,6 +39,7 @@ export default function Logbook() {
       return {};
     }
   };
+  
 
   const fetchCompletedHikes = useCallback(async () => {
     if (!userID) return;
@@ -65,6 +69,7 @@ export default function Logbook() {
           ...h,
           plannerName: userDatas[h.plannerid]?.username || `User ${h.plannerid}`,
           has_started: h.has_started === true || h.has_started === 'true' || h.has_started === 1 || h.has_started === 't',
+          planned_at: subtractHours(h.planned_at, 2) // only here
         }))
       );
     } catch (err) {
@@ -111,32 +116,88 @@ export default function Logbook() {
     return match ? `${match[1].padStart(2,"0")}:${match[2].padStart(2,"0")}:${match[3].padStart(2,"0")}` : ts;
   };
 
-  const openEditModal = (hike) => {
-    setSelectedHikeId(hike.completedhikeid);
-    setEditTimespan(formatTimespan(hike.timespan) || "");
-    setShowEditModal(true);
-  };
+const openEditModal = (hike) => {
+  setSelectedHikeId(hike.completedhikeid);
+  setEditTimespan(formatTimespan(hike.timespan) || "");
+  setEditHikeNotes(hike.hikenotes || "");
+  setShowEditModal(true);
+};
+
   const closeEditModal = () => {
     setShowEditModal(false);
     setSelectedHikeId(null);
     setEditTimespan("");
   };
-  const handleUpdateTimespan = async () => {
-    if (!selectedHikeId || !editTimespan) return;
-    try {
-      await apiClient.post("/update-timespan", { completedHikeId: selectedHikeId, timespan: editTimespan });
-      closeEditModal();
-      fetchCompletedHikes();
-    } catch (err) { console.error(err); }
+
+  // Subtract hours from a Date string
+/**
+ * Subtract hours from a server timestamp string and return formatted local string.
+ * Handles YYYY-MM-DD HH:mm:ss timestamps consistently.
+ */
+// Subtract hours from a server timestamp string and return formatted local string
+  const subtractHours = (timestamp, hours = 2) => {
+    if (!timestamp) return "Unknown";
+
+    // Convert "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ss"
+    const isoString = timestamp.replace(" ", "T");
+
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "Invalid date";
+
+    // Subtract hours
+    date.setHours(date.getHours() - hours);
+
+    // Format as MM/DD/YYYY, hh:mm:ss AM/PM
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true
+    });
   };
 
+
+
+
+  const handleUpdateHike = async () => {
+    if (!selectedHikeId) return;
+
+    try {
+      await apiClient.post("/update-hike", {
+        completedHikeId: selectedHikeId,
+        timespan: editTimespan,
+        hikenotes: editHikeNotes
+      });
+      closeEditModal();
+      fetchCompletedHikes();
+    } catch (err) {
+      console.error(err);
+    }
+};
+
+
   const handleStartHike = async (plannerId) => {
-    if (!plannerId || !userID || startingHikeId === plannerId) return;
+    if (!plannerId || !userID) return;
+
+    // Prevent starting a hike if any hike has already started
+    const alreadyStarted = upcomingHikes.some(h => h.has_started);
+    if (alreadyStarted) {
+      alert("You can only start one hike at a time.");
+      return;
+    }
+
     setStartingHikeId(plannerId);
     try {
       const res = await apiClient.post("/start-hike", { plannerId, userId: userID });
       if (!res.data.success) throw new Error(res.data.message || "Failed to start hike");
-      setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: true, planned_at: res.data.planned_at } : h));
+      setUpcomingHikes(prev => prev.map(h => 
+        h.plannerid === plannerId 
+          ? { ...h, has_started: true, planned_at: subtractHours(res.data.planned_at, 0) } 
+          : h
+      ));
     } catch (err) {
       console.error(err);
       setUpcomingHikes(prev => prev.map(h => h.plannerid === plannerId ? { ...h, has_started: false } : h));
@@ -144,6 +205,7 @@ export default function Logbook() {
       setStartingHikeId(null);
     }
   };
+
 
   const handleStopHike = async (plannerId) => {
     if (!plannerId || !userID) return;
@@ -167,6 +229,64 @@ export default function Logbook() {
       fetchPendingHikes();
     } catch (err) { console.error(err); }
   };
+
+const handleDeleteHike = (plannerId) => {
+  setConfirmDeleteHikeId(plannerId); // opens modal
+};
+
+const handleDeleteHikeConfirm = async () => {
+  if (!confirmDeleteHikeId) return;
+  try {
+    await apiClient.delete(`/delete-upcoming-hike`, {
+      data: { plannerId: confirmDeleteHikeId, userID }
+    });
+    setUpcomingHikes(prev => prev.filter(h => h.plannerid !== confirmDeleteHikeId));
+  } catch (err) {
+    console.error("Failed to delete hike:", err);
+  } finally {
+    setConfirmDeleteHikeId(null);
+  }
+};
+
+const handleTogglePin = async (hike) => {
+  const pinnedCount = completedHikes.filter(h => h.pinnedhikes).length;
+
+  // Limit to 3 pinned hikes
+  if (!hike.pinnedhikes && pinnedCount >= 3) {
+    alert("You can only pin up to 3 hikes.");
+    return;
+  }
+
+  try {
+    // Call backend API
+    await apiClient.post("/pin-completed-hike", { 
+      completedHikeId: hike.completedhikeid, 
+      pin: !hike.pinnedhikes,
+      userId: userID
+    });
+
+
+    // Update local state to reflect new pinned status
+    setCompletedHikes(prev => 
+      prev.map(h => 
+        h.completedhikeid === hike.completedhikeid ? { ...h, pinnedhikes: !h.pinnedhikes } : h
+      )
+    );
+  } catch (err) {
+    console.error("Failed to toggle pin:", err);
+    // Log additional details if available
+    if (err.response) {
+      console.error("Server response status:", err.response.status);
+      console.error("Server response data:", err.response.data);
+    } else if (err.request) {
+      console.error("No response received:", err.request);
+    } else {
+      console.error("Error message:", err.message);
+    }
+  }
+};
+
+
 
   const filteredCompletedHikes = completedHikes.filter(h =>
     (h.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
@@ -283,8 +403,7 @@ export default function Logbook() {
                           </p>
                           <p><strong>Description:</strong> {hike.description}</p>
                           <p>
-                            <strong>Planned At:</strong>{" "}
-                            {hike.planned_at ? new Date(hike.planned_at).toLocaleString() : "Unknown"}
+                            <strong>Planned At:</strong>{hike.planned_at}
                           </p>
                         </div>
 
@@ -305,22 +424,31 @@ export default function Logbook() {
                       </div>
 
                       {/* Start / Stop button below both */}
-                      {hike.has_started ? (
-                        <button
-                          onClick={() => handleStopHike(hike.plannerid)}
-                          className="mt-4 self-end px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                        >
-                          Stop
-                        </button>
-                      ) : (
-                        <button
-                          disabled={startingHikeId === hike.plannerid || hike.has_started}
-                          onClick={() => handleStartHike(hike.plannerid)}
-                          className="mt-4 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                        >
-                          Start
-                        </button>
-                      )}
+                      <section className="flex gap-2 mt-4 self-end">
+                          {hike.has_started ? (
+                            <button
+                              onClick={() => handleStopHike(hike.plannerid)}
+                              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                            >
+                              Stop
+                            </button>
+                          ) : (
+                            <button
+                              disabled={startingHikeId === hike.plannerid || hike.has_started}
+                              onClick={() => handleStartHike(hike.plannerid)}
+                              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                            >
+                              Start
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteHike(hike.plannerid)}
+                            className="px-4 py-2 bg-red-400 text-white rounded hover:bg-red-500 transition-colors"
+                          >
+                            Delete
+                          </button>
+                      </section>
                     </section>
 
                   )}
@@ -349,6 +477,7 @@ export default function Logbook() {
                           <p><strong>Description:</strong> {hike.description}</p>
                           <p><strong>Date Completed:</strong> {hike.date ? new Date(hike.date).toLocaleDateString() : "Unknown"}</p>
                           <p><strong>Time Span:</strong> {formatTimespan(hike.timespan)}</p>
+                          <p><strong>Notes:</strong> {hike.hikenotes || "No notes"}</p>
                         </div>
 
                         {/* Map on the right */}
@@ -368,12 +497,24 @@ export default function Logbook() {
                       </div>
 
                       {/* Edit button below both */}
-                      <button
-                        onClick={() => openEditModal(hike)}
-                        className="mt-4 self-end px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                      >
-                        Edit
-                      </button>
+                      <section className="flex gap-2 mt-4 self-end">
+                        <button
+                          onClick={() => openEditModal(hike)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleTogglePin(hike)}
+                          className={`px-4 py-2 rounded transition-colors ${
+                            hike.pinnedhikes 
+                              ? "bg-yellow-400 text-white hover:bg-yellow-500" 
+                              : "bg-gray-300 hover:bg-gray-400"
+                          }`}
+                        >
+                          {hike.pinnedhikes ? "Pinned" : "Pin"}
+                        </button>
+                      </section>
                     </section>
 
                   )}
@@ -387,15 +528,57 @@ export default function Logbook() {
       {showEditModal && (
         <section className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <section className="bg-white p-6 rounded shadow-md w-96">
-            <h2 className="text-lg font-bold mb-4">Edit Timespan</h2>
-            <input type="text" value={editTimespan} onChange={(e) => setEditTimespan(e.target.value)} className="border p-2 w-full mb-4" />
+            <h2 className="text-lg font-bold mb-2">Edit Hike</h2>
+            
+            <label className="block font-medium mb-1">Timespan</label>
+            <input
+              type="time"
+              step="1" // enables seconds
+              value={editTimespan}
+              onChange={(e) => setEditTimespan(e.target.value)}
+              className="border p-2 w-full mb-4"
+            />
+
+            <label className="block font-medium mb-1">Hike Notes</label>
+            <textarea
+              value={editHikeNotes}
+              onChange={(e) => setEditHikeNotes(e.target.value)}
+              className="border p-2 w-full mb-4"
+              rows={4}
+            />
+
             <section className="flex justify-end gap-2">
               <button onClick={closeEditModal} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
-              <button onClick={handleUpdateTimespan} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+              <button onClick={handleUpdateHike} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
             </section>
           </section>
         </section>
       )}
+
+
+      {confirmDeleteHikeId && (
+        <section className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <section className="bg-white p-6 rounded shadow-md w-96">
+            <p className="text-lg font-bold mb-4">Confirm Delete</p>
+            <p>Are you sure you want to delete this upcoming hike?</p>
+            <section className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setConfirmDeleteHikeId(null)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button onClick={handleDeleteHikeConfirm}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Yes, Delete
+              </button>
+            </section>
+          </section>
+        </section>
+      )}
+
+
     </main>
   );
 }

@@ -1,6 +1,26 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useUserContext } from "./context/userContext.js";
+// DurationPicker component
+export function DurationPicker({ value, onChange }) {
+  const [hours, setHours] = React.useState(0);
+  const [minutes, setMinutes] = React.useState(0);
+  const [seconds, setSeconds] = React.useState(0);
+
+  React.useEffect(() => {
+    onChange(`${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`);
+  }, [hours, minutes, seconds]);
+
+  return (
+    <div className="flex gap-2 items-center">
+      <input type="number" min="0" max="99" value={hours} onChange={e => setHours(Number(e.target.value))} className="w-16 text-center"/>
+      <span>:</span>
+      <input type="number" min="0" max="59" value={minutes} onChange={e => setMinutes(Number(e.target.value))} className="w-16 text-center"/>
+      <span>:</span>
+      <input type="number" min="0" max="59" value={seconds} onChange={e => setSeconds(Number(e.target.value))} className="w-16 text-center"/>
+    </div>
+  );
+}
 
 export default function PlanHike() {
   const { userID } = useUserContext();
@@ -35,13 +55,6 @@ export default function PlanHike() {
     setLoading(false);
   };
 
-  const filteredHikes = hikes.filter(hike =>
-    (hike.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
-    (hike.location || "").toLowerCase().includes(filters.location.toLowerCase()) &&
-    (hike.difficulty?.toString() || "").toLowerCase().includes(filters.difficulty.toLowerCase()) &&
-    (hike.duration ? new Date(hike.duration).toLocaleDateString() : "").toLowerCase().includes(filters.duration.toLowerCase()) &&
-    (hike.description || "").toLowerCase().includes(filters.description.toLowerCase())
-  );
 
   const openPlanModal = (hike) => { setSelectedHike(hike); setShowPlanModal(true); };
   const closeModals = () => {
@@ -63,6 +76,32 @@ export default function PlanHike() {
     const match = ts.toString().match(/(\d+):(\d+):(\d+)/);
     return match ? `${match[1].padStart(2,"0")}:${match[2].padStart(2,"0")}:${match[3].padStart(2,"0")}` : ts;
   };
+
+  const durationToSeconds = (d) => {
+    if (!d) return 0;
+    if (typeof d === "object") {
+      return (d.hours || 0) * 3600 + (d.minutes || 0) * 60 + (d.seconds || 0);
+    }
+    const parts = d.split(":").map(Number);
+    return parts[0]*3600 + parts[1]*60 + (parts[2] || 0);
+  };
+
+  const filteredHikes = hikes.filter(hike => {
+    const hikeDuration = durationToSeconds(hike.duration);
+    const filterDuration = (!filters.duration || filters.duration === "00:00:00") ? null : durationToSeconds(filters.duration);
+
+    const hikeDiff = Number(hike.difficulty);
+    const filterDiff = filters.difficulty === "" ? null : Number(filters.difficulty);
+
+    return (
+      (hike.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
+      (hike.location || "").toLowerCase().includes(filters.location.toLowerCase()) &&
+      (filterDiff === null || hikeDiff === filterDiff) &&
+      (filterDuration === null || hikeDuration <= filterDuration) &&
+      (hike.description || "").toLowerCase().includes(filters.description.toLowerCase())
+    );
+  });
+
 
   const isDateValid = (datetime) => {
     if (!datetime) return false;
@@ -145,12 +184,53 @@ export default function PlanHike() {
         <aside className="w-1/4 rounded-lg bg-white shadow-md p-4 flex flex-col gap-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Filters</h2>
           <section className="space-y-3">
-            {Object.keys(filters).map(key => (
-              <section key={key} className="flex flex-col">
-                <label htmlFor={key} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
-                <input id={key} type="text" value={filters[key]} onChange={e => setFilters({ ...filters, [key]: e.target.value })} className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"/>
-              </section>
-            ))}
+            {Object.keys(filters).map(key => {
+              if (key === "duration") {
+                return (
+                  <section key={key} className="flex flex-col">
+                    <label htmlFor={key} className="text-sm font-medium text-gray-700">
+                      {key === "duration" 
+                        ? "Duration of trails ≤ set time" 
+                        : key.charAt(0).toUpperCase() + key.slice(1)}
+                    </label>
+                    <DurationPicker
+                      value={filters.duration}
+                      onChange={val => setFilters({ ...filters, duration: val })}
+                    />
+                  </section>
+                );
+              } else if (key === "difficulty") {
+                return (
+                  <section key={key} className="flex flex-col">
+                    <label htmlFor={key} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
+                    <select
+                      id={key}
+                      value={filters[key]}
+                      onChange={e => setFilters({ ...filters, [key]: e.target.value })}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="">Any</option>
+                      {Array.from({ length: 11 }, (_, i) => (
+                        <option key={i} value={i}>{i}</option>
+                      ))}
+                    </select>
+                  </section>
+                );
+              } else {
+                return (
+                  <section key={key} className="flex flex-col">
+                    <label htmlFor={key} className="text-sm font-medium text-gray-700 capitalize">{key}</label>
+                    <input
+                      id={key}
+                      type="text"
+                      value={filters[key]}
+                      onChange={e => setFilters({ ...filters, [key]: e.target.value })}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </section>
+                );
+              }
+            })}
           </section>
         </aside>
 

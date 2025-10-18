@@ -13,7 +13,7 @@ describe("Home", () => {
   });
 
   it("renders activity feed when user is logged in", async () => {
-    axios.post.mockResolvedValue({
+    axios.get.mockResolvedValue({
       data: {
         rows: [
           {
@@ -22,6 +22,7 @@ describe("Home", () => {
             content: "Some content",
             userid: "123",
             dateposted: new Date().toISOString(),
+            name: "test"
           },
         ],
       },
