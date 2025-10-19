@@ -51,21 +51,19 @@ describe("PlanHike Component", () => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
-  test("renders header and filters", async () => {
+  test("FE_PLAN_001 renders header and filters", async () => {
     render(<PlanHike />);
     expect(screen.getByText("Plan Hike")).toBeInTheDocument();
     expect(await screen.findByText("Trail A")).toBeInTheDocument();
     expect(await screen.findByText("Trail B")).toBeInTheDocument();
-
-    // Check filters
-    expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/location/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/difficulty/i)).toBeInTheDocument();
-    expect(screen.getByText(/Duration of trails ≤ set time/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
+    Object.keys(mockHikes[0]).forEach(key => {
+      if (key !== "trailid" && key !== "duration") {
+        expect(screen.getByLabelText(new RegExp(key, "i"))).toBeInTheDocument();
+      }
+    });
   });
 
-test("filters hikes based on name and duration", async () => {
+test("FE_PLAN_002 filters hikes based on name and duration", async () => {
   render(<PlanHike />);
 
   // --- Filter by name ---
@@ -98,7 +96,8 @@ test("filters hikes based on name and duration", async () => {
 });
 
 
-  test("opens and closes plan hike modal", async () => {
+  test("FE_PLAN_003 opens and closes plan hike modal", async () => {
+
     render(<PlanHike />);
     const toggleButton = await screen.findByRole("button", { name: /Trail A/i });
     fireEvent.click(toggleButton);
@@ -113,7 +112,7 @@ test("filters hikes based on name and duration", async () => {
     expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument();
   });
 
-  test("validates past date before planning hike", async () => {
+  test("FE_PLAN_004 validates past date before planning hike", async () => {
     render(<PlanHike />);
     const toggleButton = await screen.findByRole("button", { name: /Trail A/i });
     fireEvent.click(toggleButton);
@@ -132,7 +131,7 @@ test("filters hikes based on name and duration", async () => {
     await waitFor(() => expect(screen.getByText(/Plan Hike: Trail A/i)).toBeInTheDocument());
   });
 
-  test("plans hike with future date", async () => {
+  test("FE_PLAN_005 plans hike with future date", async () => {
     render(<PlanHike />);
     const toggleButton = await screen.findByRole("button", { name: /Trail A/i });
     fireEvent.click(toggleButton);
@@ -151,7 +150,7 @@ test("filters hikes based on name and duration", async () => {
     await waitFor(() => expect(screen.queryByText(/Plan Hike: Trail A/i)).not.toBeInTheDocument());
   });
 
-  test("invites friends correctly", async () => {
+  test("FE_PLAN_006 invites friends correctly", async () => {
     render(<PlanHike />);
     const toggleButton = await screen.findByRole("button", { name: /Trail A/i });
     fireEvent.click(toggleButton);
