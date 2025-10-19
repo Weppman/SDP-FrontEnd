@@ -26,13 +26,13 @@ beforeEach(() => {
 });
 
 describe("Logbook Component", () => {
-  it("renders loading message when no userID", () => {
+  it("FE_LOGBOOK_001 renders loading message when no userID", () => {
     useUserContext.mockReturnValue({ userID: null });
     render(<Logbook />);
     expect(screen.getByText(/loading user information/i)).toBeInTheDocument();
   });
 
-  it("renders upcoming and completed hikes", async () => {
+  it("FE_LOGBOOK_002 renders upcoming and completed hikes", async () => {
     // Mock GET responses
     mockAxiosInstance.get.mockImplementation((url) => {
       if (url === `/completed-hikes/${mockUserID}`) {
@@ -89,7 +89,7 @@ describe("Logbook Component", () => {
     expect(screen.getByText(/01:30:00/)).toBeInTheDocument();
   });
 
-  it("opens and closes edit modal", async () => {
+  it("FE_LOGBOOK_003 opens and closes edit modal", async () => {
     mockAxiosInstance.get.mockResolvedValue({
       data: { rows: [{ completedhikeid: 1, userid: 1, name: "Test Hike", date: "2025-09-28", timespan: "01:30:00" }] },
     });
@@ -116,7 +116,7 @@ describe("Logbook Component", () => {
     expect(screen.queryByText(/Edit Hike/i)).not.toBeInTheDocument();
   });
 
-  it("filters completed hikes by name", async () => {
+  it("FE_LOGBOOK_004 filters completed hikes by name", async () => {
     mockAxiosInstance.get.mockImplementation((url) => {
       if (url.includes("completed-hikes")) {
         return Promise.resolve({
@@ -152,7 +152,7 @@ describe("Logbook Component", () => {
     expect(screen.queryByText("Alpha Hike")).not.toBeInTheDocument();
   });
 
-  it("starts and stops upcoming hikes", async () => {
+  it("FE_LOGBOOK_005 starts and stops upcoming hikes", async () => {
     mockAxiosInstance.get.mockImplementation((url) => {
       if (url.includes("upcoming-hikes")) {
         return Promise.resolve({
@@ -187,7 +187,7 @@ describe("Logbook Component", () => {
     await waitFor(() => expect(screen.queryByText("Stop")).not.toBeInTheDocument());
   });
 
-  it("accepts and declines pending invites", async () => {
+  it("FE_LOGBOOK_006 accepts and declines pending invites", async () => {
     mockAxiosInstance.get.mockResolvedValue({
       data: {
         rows: [],
