@@ -24,7 +24,7 @@ describe("SearchUsersUI Component", () => {
     jest.clearAllMocks();
   });
 
-  test("renders suggested users and allows follow toggle", async () => {
+  test("FE_SEARCH_001 renders suggested users and allows follow toggle", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     fetch.mockImplementation((url) => {
@@ -76,8 +76,7 @@ describe("SearchUsersUI Component", () => {
       expect(within(bobCard).getByText("Unfollow")).toBeInTheDocument();
     });
   });
-
-  test("searches users and displays results with follow toggle", async () => {
+  test("FE_SEARCH_002 searches users and displays results with follow toggle", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     fetch.mockImplementation((url) => {
@@ -134,7 +133,7 @@ describe("SearchUsersUI Component", () => {
       expect(within(charlieCard).getByText("Unfollow")).toBeInTheDocument();
     });
   });
-  test("refreshes suggested users when refresh button is clicked", async () => {
+  test("FE_SEARCH_003 refreshes suggested users when refresh button is clicked", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     // Initial suggested users
@@ -195,7 +194,7 @@ describe("SearchUsersUI Component", () => {
       expect(screen.queryByText("Bob")).not.toBeInTheDocument();
     });
   });
-  test("displays message when search returns no users", async () => {
+  test("FE_SEARCH_004 displays message when search returns no users", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     // Mock fetch for friends and search
@@ -231,7 +230,7 @@ describe("SearchUsersUI Component", () => {
       ).toBeInTheDocument();
     });
   });
-  test("logs error when fetching friends fails", async () => {
+  test("FE_SEARCH_005 logs error when fetching friends fails", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     const consoleSpy = jest
@@ -261,7 +260,7 @@ describe("SearchUsersUI Component", () => {
 
     consoleSpy.mockRestore();
   });
-  test("logs error when fetching suggested users fails", async () => {
+  test("FE_SEARCH_006 logs error when fetching suggested users fails", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     const consoleSpy = jest
@@ -292,7 +291,7 @@ describe("SearchUsersUI Component", () => {
 
     consoleSpy.mockRestore();
   });
-  test("logs error when search fails", async () => {
+  test("FE_SEARCH_007 logs error when search fails", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     const consoleSpy = jest
@@ -331,7 +330,7 @@ describe("SearchUsersUI Component", () => {
 
     consoleSpy.mockRestore();
   });
-  test("unfollows a user and updates friends state", async () => {
+  test("FE_SEARCH_008 unfollows a user and updates friends state", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     const friendsMock = [{ id: 2 }];
@@ -372,7 +371,7 @@ describe("SearchUsersUI Component", () => {
       expect(screen.getByText("Follow")).toBeInTheDocument();
     });
   });
-  test("logs error when follow/unfollow fails", async () => {
+  test("FE_SEARCH_009 logs error when follow/unfollow fails", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     const consoleSpy = jest
@@ -422,7 +421,7 @@ describe("SearchUsersUI Component", () => {
 
     consoleSpy.mockRestore();
   });
-  test("handleSearch filters out current user and displays results", async () => {
+  test("FE_SEARCH_010 handleSearch filters out current user and displays results", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     // Mock fetch for search
@@ -460,7 +459,7 @@ describe("SearchUsersUI Component", () => {
       expect(screen.getByText("Bob")).toBeInTheDocument();
     });
   });
-  test("handleSearch fetches users and filters out current user", async () => {
+  test("FE_SEARCH_011 handleSearch fetches users and filters out current user", async () => {
     useUserContext.mockReturnValue({ userID: 1 });
 
     // Mock fetch for search
@@ -500,7 +499,7 @@ describe("SearchUsersUI Component", () => {
       expect(screen.getByText("Charlie")).toBeInTheDocument();
     });
   });
-  test("renders avatar correctly and triggers initial fetch", async () => {
+  test("FE_SEARCH_012 renders avatar correctly and triggers initial fetch", async () => {
   useUserContext.mockReturnValue({ userID: 1 });
 
   const suggestedUsersMock = [

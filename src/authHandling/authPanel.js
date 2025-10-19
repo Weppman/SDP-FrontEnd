@@ -43,12 +43,6 @@ export default function AuthPanel() {
       {/* Signed in user */}
       <SignedIn>
         <UserButton />
-        <button
-          onClick={callProtected}
-          className="px-3 py-1 bg-green-400 hover:bg-green-500 text-white font-semibold rounded-md transition"
-        >
-          Call API
-        </button>
       </SignedIn>
     </section>
   );
